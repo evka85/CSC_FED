@@ -245,7 +245,7 @@ begin
         )
         port map(
         	-- Resets
-            reset_i                 => '0',
+            reset_i                 => or_reduce(gth_rxreset_arr) or or_reduce(gth_txreset_arr),
             reset_pwrup_o           => open,
             
             -- TTC
@@ -308,7 +308,7 @@ begin
     -------------------------- DEBUG ---------------------------------
     i_dmb_rx_ila_inst : entity work.gt_rx_link_ila_wrapper
         generic map (
-            g_CNT_START_DELAY => 100_000_000
+            g_CNT_START_DELAY => 80_000_000
         )
         port map(
             clk_i           => csc_dmb_rx_usrclk_arr(0),
@@ -323,7 +323,7 @@ begin
 
     i_odmb_rx_ila_inst : entity work.gt_rx_link_ila_wrapper
         generic map (
-            g_CNT_START_DELAY => 100_000_000
+            g_CNT_START_DELAY => 80_000_000
         )
         port map(
             clk_i           => csc_dmb_rx_usrclk_arr(1),

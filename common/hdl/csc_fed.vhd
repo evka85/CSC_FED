@@ -75,6 +75,8 @@ end csc_fed;
 
 architecture csc_fed_arch of csc_fed is
 
+    constant POWER_UP_RESET_TIME : std_logic_vector(31 downto 0) := x"02625a00"; -- 40_000_000 clock cycles (1s) - way too long of course, but fine -- this is only used at powerup (FED doesn't care about hard resets), it's not like someone will want to start taking data sooner than that :) 
+
     --================================--
     -- Signals
     --================================--
@@ -83,7 +85,7 @@ architecture csc_fed_arch of csc_fed is
     signal reset            : std_logic;
     signal reset_pwrup      : std_logic;
     signal ipb_reset        : std_logic;
-    signal pwrup_countdown  : std_logic_vector(31 downto 0) := x"02625a00"; -- 40_000_000 clock cycles (1s) - way too long of course, but fine -- this is only used at powerup (FED doesn't care about hard resets), it's not like someone will want to start taking data sooner than that :)
+    signal pwrup_countdown  : std_logic_vector(31 downto 0) := POWER_UP_RESET_TIME;
 
     --== TTC signals ==--
     signal ttc_clocks       : t_ttc_clks;
@@ -114,11 +116,15 @@ begin
     process(ttc_clocks.clk_40) -- NOTE: using TTC clock, nothing will work if there's no TTC clock
     begin
         if (rising_edge(ttc_clocks.clk_40)) then
-            if (unsigned(pwrup_countdown) /= x"00000000") then
-              reset_pwrup <= '1';
-              pwrup_countdown <= std_logic_vector(unsigned(pwrup_countdown) - 1);
+            if (reset_i = '1') then
+                pwrup_countdown <= POWER_UP_RESET_TIME;
             else
-              reset_pwrup <= '0';
+                if (unsigned(pwrup_countdown) /= x"00000000") then
+                  reset_pwrup <= '1';
+                  pwrup_countdown <= std_logic_vector(unsigned(pwrup_countdown) - 1);
+                else
+                  reset_pwrup <= '0';
+                end if;
             end if;
         end if;
     end process;    

@@ -34,3 +34,10 @@ Added CSC_FED mother module which doesn't care in which board it's running. It c
     - Link Monitor (DMB and spy link errors and other counters)
 IPbus support support for everything, register file added and register generation script added.
 No DAQ functionality yet, but that's coming shortly.
+
+--------------------
+----   1.0.4    ----
+---- 2016-11-23 ----
+--------------------
+
+Fix CSC logic global reset -- assert also after GTH reset is done by the system module
