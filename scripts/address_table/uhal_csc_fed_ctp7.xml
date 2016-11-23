@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<node id="top">
+  <node id="CSC_FED" address="0x00000000" >
+    <node id="TTC" address="0x00300000" >
+      <node id="CTRL" address="0x00000000" >
+        <node id="MODULE_RESET" address="0x00000000" permission="w" mask="0x80000000"/>
+        <node id="MMCM_RESET" address="0x00000001" permission="w" mask="0x40000000"/>
+        <node id="CNT_RESET" address="0x00000002" permission="w" mask="0x20000000"/>
+        <node id="MMCM_PHASE_SHIFT" address="0x00000003" permission="w" mask="0x10000000"/>
+        <node id="L1A_ENABLE" address="0x00000004" permission="rw" mask="0x00000001"/>
+      </node>
+      <node id="CONFIG" address="0x00000005" >
+        <node id="CMD_BC0" address="0x00000000" permission="rw" mask="0x000000ff"/>
+        <node id="CMD_EC0" address="0x00000000" permission="rw" mask="0x0000ff00"/>
+        <node id="CMD_RESYNC" address="0x00000000" permission="rw" mask="0x00ff0000"/>
+        <node id="CMD_OC0" address="0x00000000" permission="rw" mask="0xff000000"/>
+        <node id="CMD_HARD_RESET" address="0x00000001" permission="rw" mask="0x000000ff"/>
+        <node id="CMD_CALPULSE" address="0x00000001" permission="rw" mask="0x0000ff00"/>
+        <node id="CMD_START" address="0x00000001" permission="rw" mask="0x00ff0000"/>
+        <node id="CMD_STOP" address="0x00000001" permission="rw" mask="0xff000000"/>
+        <node id="CMD_TEST_SYNC" address="0x00000002" permission="rw" mask="0x000000ff"/>
+      </node>
+      <node id="STATUS" address="0x00000008" >
+        <node id="MMCM_LOCKED" address="0x00000000" permission="r" mask="0x00000001"/>
+        <node id="TTC_SINGLE_ERROR_CNT" address="0x00000001" permission="r" mask="0x0000ffff"/>
+        <node id="TTC_DOUBLE_ERROR_CNT" address="0x00000001" permission="r" mask="0xffff0000"/>
+        <node id="BC0" address="0x00000002" >
+          <node id="LOCKED" address="0x00000000" permission="r" mask="0x00000001"/>
+          <node id="UNLOCK_CNT" address="0x00000001" permission="r" mask="0x0000ffff"/>
+          <node id="OVERFLOW_CNT" address="0x00000002" permission="r" mask="0x0000ffff"/>
+          <node id="UNDERFLOW_CNT" address="0x00000002" permission="r" mask="0xffff0000"/>
+        </node>
+      </node>
+      <node id="CMD_COUNTERS" address="0x0000000d" >
+        <node id="L1A" address="0x00000000" permission="r" mask="0xffffffff"/>
+        <node id="BC0" address="0x00000001" permission="r" mask="0xffffffff"/>
+        <node id="EC0" address="0x00000002" permission="r" mask="0xffffffff"/>
+        <node id="RESYNC" address="0x00000003" permission="r" mask="0xffffffff"/>
+        <node id="OC0" address="0x00000004" permission="r" mask="0xffffffff"/>
+        <node id="HARD_RESET" address="0x00000005" permission="r" mask="0xffffffff"/>
+        <node id="CALPULSE" address="0x00000006" permission="r" mask="0xffffffff"/>
+        <node id="START" address="0x00000007" permission="r" mask="0xffffffff"/>
+        <node id="STOP" address="0x00000008" permission="r" mask="0xffffffff"/>
+        <node id="TEST_SYNC" address="0x00000009" permission="r" mask="0xffffffff"/>
+      </node>
+      <node id="L1A_ID" address="0x00000017" permission="r" mask="0x00ffffff"/>
+      <node id="L1A_RATE" address="0x00000018" permission="r" mask="0xffffffff"/>
+      <node id="TTC_SPY_BUFFER" address="0x00000019" permission="r" mask="0xffffffff"/>
+    </node>
+    <node id="SYSTEM" address="0x00100000" >
+      <node id="BOARD_ID" address="0x00000002" permission="rw" mask="0x0000ffff"/>
+      <node id="BOARD_TYPE" address="0x00000002" permission="r" mask="0x000f0000"/>
+      <node id="RELEASE" address="0x00000003" >
+        <node id="MAJOR" address="0x00000000" permission="r" mask="0x00ff0000"/>
+        <node id="MINOR" address="0x00000000" permission="r" mask="0x0000ff00"/>
+        <node id="BUILD" address="0x00000000" permission="r" mask="0x000000ff"/>
+        <node id="DATE" address="0x00000001" permission="r" mask="0xffffffff"/>
+      </node>
+      <node id="CONFIG" address="0x00000005" >
+        <node id="NUM_OF_DMBS" address="0x00000000" permission="r" mask="0x000000ff"/>
+      </node>
+    </node>
+    <node id="LINKS" address="0x00200000" >
+      <node id="CTRL" address="0x00000000" >
+        <node id="CNT_RESET" address="0x00000000" permission="w" mask="0x80000000"/>
+      </node>
+      <node id="DMB0" address="0x00000010" >
+        <node id="MGT_BUF_OVF_CNT" address="0x00000000" permission="r" mask="0x0000ffff"/>
+        <node id="MGT_BUF_UNF_CNT" address="0x00000000" permission="r" mask="0xffff0000"/>
+        <node id="CLK_CORR_ADD_CNT" address="0x00000001" permission="r" mask="0x0000ffff"/>
+        <node id="CLK_CORR_DROP_CNT" address="0x00000001" permission="r" mask="0xffff0000"/>
+        <node id="NOT_IN_TABLE_CNT" address="0x00000002" permission="r" mask="0x0000ffff"/>
+        <node id="DISPERR_CNT" address="0x00000002" permission="r" mask="0xffff0000"/>
+      </node>
+      <node id="DMB1" address="0x00000020" >
+        <node id="MGT_BUF_OVF_CNT" address="0x00000000" permission="r" mask="0x0000ffff"/>
+        <node id="MGT_BUF_UNF_CNT" address="0x00000000" permission="r" mask="0xffff0000"/>
+        <node id="CLK_CORR_ADD_CNT" address="0x00000001" permission="r" mask="0x0000ffff"/>
+        <node id="CLK_CORR_DROP_CNT" address="0x00000001" permission="r" mask="0xffff0000"/>
+        <node id="NOT_IN_TABLE_CNT" address="0x00000002" permission="r" mask="0x0000ffff"/>
+        <node id="DISPERR_CNT" address="0x00000002" permission="r" mask="0xffff0000"/>
+      </node>
+      <node id="SPY" address="0x00000a00" >
+        <node id="MGT_BUF_OVF_CNT" address="0x00000000" permission="r" mask="0x0000ffff"/>
+        <node id="MGT_BUF_UNF_CNT" address="0x00000000" permission="r" mask="0xffff0000"/>
+        <node id="CLK_CORR_ADD_CNT" address="0x00000001" permission="r" mask="0x0000ffff"/>
+        <node id="CLK_CORR_DROP_CNT" address="0x00000001" permission="r" mask="0xffff0000"/>
+        <node id="NOT_IN_TABLE_CNT" address="0x00000002" permission="r" mask="0x0000ffff"/>
+        <node id="DISPERR_CNT" address="0x00000002" permission="r" mask="0xffff0000"/>
+      </node>
+    </node>
+  </node>
+</node>

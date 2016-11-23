@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--  The tags attribute is a free test attribute which meaning is defined by the uHAL user -->
+<node id="top">
+  <node id="CSC_FED">
+
+    <!--TTC module -->
+    <node id="TTC"  address="0x00300000"
+          description="TTC control and monitoring. It takes care of locking to the TTC clock coming from the backplane as well as decoding TTC commands and forwarding that to all other modules in the design. It also provides several control and monitoring registers (resets, command decoding configuration, clock and data status, bc0 status, command counters and a small spy buffer)"
+          fw_is_module="true"
+          fw_module_file="../common/hdl/ttc/ttc.vhd"
+          fw_user_clock_signal="clk_40"
+          fw_bus_clock_signal="ipb_clk_i"
+          fw_bus_reset_signal="ipb_reset_i"
+          fw_master_bus_signal="ipb_mosi_i"
+          fw_slave_bus_signal="ipb_miso_o"
+          fw_reg_addr_msb="5"
+          fw_reg_addr_lsb="0">
+        <node id="CTRL" address="0x0" description="TTC control">
+            <node id="MODULE_RESET" address="0x0" mask="0x80000000" permission="w" description="TTC module reset"
+                  fw_write_pulse_signal="ttc_ctrl.reset_local"/>
+            <node id="MMCM_RESET" address="0x1" mask="0x40000000" permission="w" description="TTC MMCM reset"
+                  fw_write_pulse_signal="ttc_ctrl.mmcm_reset"/>
+            <node id="CNT_RESET" address="0x2" mask="0x20000000" permission="w" description="TTC counter reset"
+                  fw_write_pulse_signal="ttc_ctrl.cnt_reset"
+                  sw_ctrl_configure_set="0x1" sw_ctrl_start_set="0x1"/>
+            <node id="MMCM_PHASE_SHIFT" address="0x3" mask="0x10000000" permission="w" description="TTC MMCM phase shift trigger"
+                  fw_write_pulse_signal="ttc_ctrl.mmcm_phase_shift"/>
+            <node id="L1A_ENABLE" address="0x4" mask="0x00000001" permission="rw" description="Enable L1As (L1As are blocked if this is 0)"
+                  fw_signal="ttc_ctrl.l1a_enable" fw_default="0b1"
+                  sw_ctrl_configure_set="0x0" sw_ctrl_start_set="0x1" sw_ctrl_stop_set="0x0"/>
+        </node>
+        <node id="CONFIG" address="0x5" description="TTC configuration -- used for setup TTC command decoding">
+            <node id="CMD_BC0" address="0x0" mask="0x000000ff" permission="rw" description="BC0 command code"
+                  fw_signal="ttc_conf.cmd_bc0" fw_default="0x01"
+                  sw_ctrl_configure_confdb_check_set="true"/>
+            <node id="CMD_EC0" address="0x0" mask="0x0000ff00" permission="rw" description="EC0 command code"
+                  fw_signal="ttc_conf.cmd_ec0" fw_default="0x02"
+                  sw_ctrl_configure_confdb_check_set="true"/>
+            <node id="CMD_RESYNC" address="0x0" mask="0x00ff0000" permission="rw" description="Resync command code"
+                  fw_signal="ttc_conf.cmd_resync" fw_default="0x04"
+                  sw_ctrl_configure_confdb_check_set="true"/>
+            <node id="CMD_OC0" address="0x0" mask="0xff000000" permission="rw" description="OC0 command code"
+                  fw_signal="ttc_conf.cmd_oc0" fw_default="0x08"
+                  sw_ctrl_configure_confdb_check_set="true"/>
+            <node id="CMD_HARD_RESET" address="0x1" mask="0x000000ff" permission="rw" description="Hard-reset command code"
+                  fw_signal="ttc_conf.cmd_hard_reset" fw_default="0x10"
+                  sw_ctrl_configure_confdb_check_set="true"/>
+            <node id="CMD_CALPULSE" address="0x1" mask="0x0000ff00" permission="rw" description="Calibration pulse command code"
+                  fw_signal="ttc_conf.cmd_calpulse" fw_default="0x14"
+                  sw_ctrl_configure_confdb_check_set="true"/>
+            <node id="CMD_START" address="0x1" mask="0x00ff0000" permission="rw" description="START command code"
+                  fw_signal="ttc_conf.cmd_start" fw_default="0x18"
+                  sw_ctrl_configure_confdb_check_set="true"/>
+            <node id="CMD_STOP" address="0x1" mask="0xff000000" permission="rw" description="STOP command code"
+                  fw_signal="ttc_conf.cmd_stop" fw_default="0x1c"
+                  sw_ctrl_configure_confdb_check_set="true"/>
+            <node id="CMD_TEST_SYNC" address="0x2" mask="0x000000ff" permission="rw" description="Test-sync command code"
+                  fw_signal="ttc_conf.cmd_test_sync" fw_default="0x20"
+                  sw_ctrl_configure_confdb_check_set="true"/>
+        </node>
+        <node id="STATUS" address="0x8" description="TTC status">
+            <node id="MMCM_LOCKED" address="0x0" mask="0x00000001" permission="r" description="MMCM locked flag"
+                  fw_signal="ttc_status.mmcm_locked"
+                  sw_monitor_error_value="0"/>
+            <node id="TTC_SINGLE_ERROR_CNT" address="0x1" mask="0x0000ffff" permission="r" description="TTC stream single bit error count"
+                  fw_signal="ttc_status.single_err"
+                  sw_monitor_warn_min_threshold="1"/>
+            <node id="TTC_DOUBLE_ERROR_CNT" address="0x1" mask="0xffff0000" permission="r" description="TTC stream double bit error count"
+                  fw_signal="ttc_status.double_err"
+                  sw_monitor_error_min_threshold="1"/>
+            <node id="BC0" address="0x2" description="TTC status">
+                <node id="LOCKED" address="0x0" mask="0x00000001" permission="r" description="BC0 locked flag"
+                      fw_signal="ttc_status.bc0_status.locked"
+                      sw_monitor_error_value="0"/>
+                <node id="UNLOCK_CNT" address="0x1" mask="0x0000ffff" permission="r" description="BC0 unlock count"
+                      fw_signal="ttc_status.bc0_status.unlocked_cnt"
+                      sw_monitor_error_min_threshold="1"/>
+                <node id="OVERFLOW_CNT" address="0x2" mask="0x0000ffff" permission="r" description="BX counter overflow count (late or no BC0 received)"
+                      fw_signal="ttc_status.bc0_status.ovf_cnt"
+                      sw_monitor_error_min_threshold="1"/>
+                <node id="UNDERFLOW_CNT" address="0x2" mask="0xffff0000" permission="r" description="BX counter underflow count (early BC0 received, one is normal after the TTC module reset, but this should be reset by control software before each run)"
+                      fw_signal="ttc_status.bc0_status.udf_cnt"
+                      sw_monitor_error_min_threshold="1"/>
+            </node>
+        </node>
+
+        <node id="CMD_COUNTERS" address="0xd" description="TTC command counters">
+            <node id="L1A" address="0x0" mask="0xffffffff" permission="r" description="L1A count"
+                  fw_signal="ttc_cmds_cnt_arr(0)"/>
+            <node id="BC0" address="0x1" mask="0xffffffff" permission="r" description="BC0 count"
+                  fw_signal="ttc_cmds_cnt_arr(1)"/>
+            <node id="EC0" address="0x2" mask="0xffffffff" permission="r" description="EC0 count"
+                  fw_signal="ttc_cmds_cnt_arr(2)"/>
+            <node id="RESYNC" address="0x3" mask="0xffffffff" permission="r" description="Resync count"
+                  fw_signal="ttc_cmds_cnt_arr(3)"/>
+            <node id="OC0" address="0x4" mask="0xffffffff" permission="r" description="OC0 count"
+                  fw_signal="ttc_cmds_cnt_arr(4)"/>
+            <node id="HARD_RESET" address="0x5" mask="0xffffffff" permission="r" description="Hard-reset count"
+                  fw_signal="ttc_cmds_cnt_arr(5)"/>
+            <node id="CALPULSE" address="0x6" mask="0xffffffff" permission="r" description="Calibration pulse count"
+                  fw_signal="ttc_cmds_cnt_arr(6)"/>
+            <node id="START" address="0x7" mask="0xffffffff" permission="r" description="START count"
+                  fw_signal="ttc_cmds_cnt_arr(7)"/>
+            <node id="STOP" address="0x8" mask="0xffffffff" permission="r" description="STOP count"
+                  fw_signal="ttc_cmds_cnt_arr(8)"/>
+            <node id="TEST_SYNC" address="0x9" mask="0xffffffff" permission="r" description="Test-sync count"
+                  fw_signal="ttc_cmds_cnt_arr(9)"/>
+        </node>
+
+        <node id="L1A_ID" address="0x17" mask="0x00ffffff" permission="r"
+              description="L1A ID (increments with every L1A and resets with EC0), used by DAQ to tag event numbers"
+              fw_signal="l1id_cnt"/>
+
+        <node id="L1A_RATE" address="0x18" mask="0xffffffff" permission="r"
+              description="L1A rate in Hz"
+              fw_signal="l1a_rate"/>
+
+        <node id="TTC_SPY_BUFFER" address="0x19" mask="0xffffffff" permission="r" description="TTC Spy buffer -- this is filled with TTC commands (from LSB to MSB) and freezes until the user reads it out, once read out it resets and fills up again with new TTC commands received from that point on"
+              fw_signal="ttc_spy_buffer" fw_read_pulse_signal="ttc_spy_reset"/>
+    </node>
+    <!--end TTC module -->
+
+    <!-- System module -->
+    <node id="SYSTEM"  address="0x00100000"
+          description="This module is controlling CSC FED system wide settings"
+          fw_is_module="true"
+          fw_module_file="../common/hdl/system/system_regs.vhd"
+          fw_user_clock_signal="ipb_clk_i"
+          fw_bus_clock_signal="ipb_clk_i"
+          fw_bus_reset_signal="ipb_reset_i"
+          fw_master_bus_signal="ipb_mosi_i"
+          fw_slave_bus_signal="ipb_miso_o"
+          fw_reg_addr_msb="12"
+          fw_reg_addr_lsb="0">
+
+        <node id="BOARD_ID" address="0x2" mask="0x0000ffff" permission="rw"
+              description="Board ID that gets embedded in the AMC13 header"
+              fw_signal="board_id" fw_default="0xcfed"/>
+        <node id="BOARD_TYPE" address="0x2" mask="0x000f0000" permission="r"
+              description="Board type: 1 means CTP7"
+              fw_signal="board_type"/>
+              
+        <node id="RELEASE" address="0x3">
+            <node id="MAJOR" address="0x0" mask="0x00ff0000" permission="r"
+                  description="Firmware release major version"
+                  fw_signal="std_logic_vector(to_unsigned(version_major, 8))"/>
+            <node id="MINOR" address="0x0" mask="0x0000ff00" permission="r"
+                  description="Firmware release minor version"
+                  fw_signal="std_logic_vector(to_unsigned(version_minor, 8))"/>
+            <node id="BUILD" address="0x0" mask="0x000000ff" permission="r"
+                  description="Firmware release build version"
+                  fw_signal="std_logic_vector(to_unsigned(version_build, 8))"/>
+            <node id="DATE" address="0x1" mask="0xffffffff" permission="r"
+                  description="Firmware release date (read as hex)"
+                  fw_signal="firmware_date"/>
+        </node>      
+        
+        <node id="CONFIG" address="0x5">
+            <node id="NUM_OF_DMBS" address="0x0" mask="0x000000ff" permission="r"
+                  description="Number of DMB inputs supported in this build"
+                  fw_signal="num_of_dmbs"/>
+        </node>
+
+    </node>
+    <!--end System module -->
+    
+    <!-- Link monitor module -->
+    <node id="LINKS"  address="0x00200000"
+          description="Link monitoring registers"
+          fw_is_module="true"
+          fw_module_file="../common/hdl/system/link_monitor.vhd"
+          fw_user_clock_signal="clk_i"
+          fw_bus_clock_signal="ipb_clk_i"
+          fw_bus_reset_signal="ipb_reset_i"
+          fw_master_bus_signal="ipb_mosi_i"
+          fw_slave_bus_signal="ipb_miso_o"
+          fw_reg_addr_msb="12"
+          fw_reg_addr_lsb="0">
+          
+        <node id="CTRL" address="0x0" description="Link monitor control">
+            <node id="CNT_RESET" address="0x0" mask="0x80000000" permission="w" description="Counter reset"
+                  fw_write_pulse_signal="reset_local"/>
+        </node>
+
+        <node id="DMB${DMB_IDX}" address="0x10" description="Link(s) of DMB ${DMB_IDX}"
+              generate="true" generate_size="2" generate_address_step="0x10" generate_idx_var="DMB_IDX">
+            <node id="MGT_BUF_OVF_CNT" address="0x0" mask="0x0000ffff" permission="r"
+                  description="Number of times that MGT elastic buffer has been in overflow"
+                  fw_signal="dmb_mgt_buf_ovf_arr(${DMB_IDX})"
+                  sw_monitor_warn_min_threshold="1"/>
+            <node id="MGT_BUF_UNF_CNT" address="0x0" mask="0xffff0000" permission="r"
+                  description="Number of times that MGT elastic buffer has been in underflow"
+                  fw_signal="dmb_mgt_buf_unf_arr(${DMB_IDX})"
+                  sw_monitor_warn_min_threshold="1"/>
+            <node id="CLK_CORR_ADD_CNT" address="0x1" mask="0x0000ffff" permission="r"
+                  description="Number of times that MGT has added a fake idle word to correct for clock drift"
+                  fw_signal="dmb_clk_corr_add_arr(${DMB_IDX})"/>
+            <node id="CLK_CORR_DROP_CNT" address="0x1" mask="0xffff0000" permission="r"
+                  description="Number of times that MGT has dropped an idle word to correct for clock drift"
+                  fw_signal="dmb_clk_corr_drop_arr(${DMB_IDX})"/>
+            <node id="NOT_IN_TABLE_CNT" address="0x2" mask="0x0000ffff" permission="r"
+                  description="Number of not-in-table errors"
+                  fw_signal="dmb_not_in_table_arr(${DMB_IDX})"
+                  sw_monitor_warn_min_threshold="1000"/>
+            <node id="DISPERR_CNT" address="0x2" mask="0xffff0000" permission="r"
+                  description="Number of disparity errors"
+                  fw_signal="dmb_disperr_arr(${DMB_IDX})"
+                  sw_monitor_warn_min_threshold="1000"/>
+        </node>
+
+        <node id="SPY" address="0xa00" description="Spy readout link">
+            <node id="MGT_BUF_OVF_CNT" address="0x0" mask="0x0000ffff" permission="r"
+                  description="Number of times that MGT elastic buffer has been in overflow"
+                  fw_signal="spy_mgt_buf_ovf"
+                  sw_monitor_warn_min_threshold="1"/>
+            <node id="MGT_BUF_UNF_CNT" address="0x0" mask="0xffff0000" permission="r"
+                  description="Number of times that MGT elastic buffer has been in underflow"
+                  fw_signal="spy_mgt_buf_unf"
+                  sw_monitor_warn_min_threshold="1"/>
+            <node id="CLK_CORR_ADD_CNT" address="0x1" mask="0x0000ffff" permission="r"
+                  description="Number of times that MGT has added a fake idle word to correct for clock drift"
+                  fw_signal="spy_clk_corr_add"/>
+            <node id="CLK_CORR_DROP_CNT" address="0x1" mask="0xffff0000" permission="r"
+                  description="Number of times that MGT has dropped an idle word to correct for clock drift"
+                  fw_signal="spy_clk_corr_drop"/>
+            <node id="NOT_IN_TABLE_CNT" address="0x2" mask="0x0000ffff" permission="r"
+                  description="Number of not-in-table errors"
+                  fw_signal="spy_not_in_table"
+                  sw_monitor_warn_min_threshold="1000"/>
+            <node id="DISPERR_CNT" address="0x2" mask="0xffff0000" permission="r"
+                  description="Number of disparity errors"
+                  fw_signal="spy_disperr"
+                  sw_monitor_warn_min_threshold="1000"/>
+        </node>
+
+    </node>
+    <!--end link monitor module -->
+    
+  </node>
+</node>

@@ -1,2 +1,36 @@
----- 1.0.0 ----
+--------------------
+----   1.0.0    ----
+---- 2016-11-21 ----
+--------------------
+
 Initial version, probably doesn't work haha :)
+Actually it turns out it does work -- the DMB/ODMB 1.6Gbs links are looking good, receiving valid IDLE words and shows no notintable or dispersion errors.
+In this version there's no CSC logic, only a couple of DMB / ODMB links with ILA attached to them
+
+--------------------
+----   1.0.1    ----
+---- 2016-11-22 ----
+--------------------
+
+Added clock correction and rx buffer status to the RX ILAs
+
+--------------------
+----   1.0.2    ----
+---- 2016-11-23 ----
+--------------------
+
+Removed special treatment of different DMB types -- now any type of DMB is just a DMB (be it copper DMB, 1.6Gbs ODMB, future 10Gbs ODMB or even > 10Gbs multilink ODMB), DAQ module won't care -- all it will see is just a data bus of some width and a data clock for any given input
+Reorganized fiber mapping magic (separated TX and RX fiber maps)
+
+--------------------
+----   1.0.3    ----
+---- 2016-11-23 ----
+--------------------
+
+Ok, getting more interesting -- now that the low level stuff is taken care of and stable, we're going up the ladder of abstraction.
+Added CSC_FED mother module which doesn't care in which board it's running. It currently has 3 modules:
+    - TTC (clocks, commands, config, monitor)
+    - System (firmware version, config params)
+    - Link Monitor (DMB and spy link errors and other counters)
+IPbus support support for everything, register file added and register generation script added.
+No DAQ functionality yet, but that's coming shortly.
