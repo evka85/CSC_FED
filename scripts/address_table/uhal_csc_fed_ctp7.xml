@@ -89,7 +89,7 @@
         <node id="DISPERR_CNT" address="0x00000002" permission="r" mask="0xffff0000"/>
       </node>
     </node>
-    <node id="DAQ" address="0x00700000" >
+    <node id="DAQ" address="0x00400000" >
       <node id="CONTROL" address="0x00000000" >
         <node id="DAQ_ENABLE" address="0x00000000" permission="rw" mask="0x00000001"/>
         <node id="DAQ_LINK_RESET" address="0x00000000" permission="rw" mask="0x00000004"/>

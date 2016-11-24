@@ -282,7 +282,7 @@ package registers is
 
 
     --============================================================================
-    --       >>> DAQ Module <<<    base address: 0x00700000
+    --       >>> DAQ Module <<<    base address: 0x00400000
     --
     -- DAQ module buffers track data, builds events, analyses the data for
     -- consistency and ships off the events with all the needed headers and

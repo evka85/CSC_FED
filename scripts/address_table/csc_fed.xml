@@ -237,7 +237,7 @@
     <!--end link monitor module -->
 
     <!--DAQ module -->
-    <node id="DAQ"  address="0x00700000"
+    <node id="DAQ"  address="0x00400000"
           description="DAQ module buffers track data, builds events, analyses the data for consistency and ships off the events with all the needed headers and trailers to AMC13 over DAQLink"
           fw_is_module="true"
           fw_module_file="../common/hdl/daq/daq.vhd"
