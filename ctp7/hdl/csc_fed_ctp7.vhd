@@ -336,18 +336,6 @@ begin
             clkcorrcnt_i    => csc_dmb_rx_status_arr(1).rxclkcorcnt
         );
 
-   daq_to_daqlink.event_clk <= clk_50;
-   daq_to_daqlink.event_data <= (others => '0');
-   daq_to_daqlink.event_header <= '0';
-   daq_to_daqlink.event_trailer <= '0';
-   daq_to_daqlink.event_valid <= '0';
-   daq_to_daqlink.reset <= '0';
-   daq_to_daqlink.resync <= '0';
-   daq_to_daqlink.trig <= (others => '0');
-   daq_to_daqlink.ttc_bc0 <= '0';
-   daq_to_daqlink.ttc_clk <= ttc_clocks.clk_40;
-   daq_to_daqlink.tts_clk <= ttc_clocks.clk_40;
-   daq_to_daqlink.tts_state <= x"8";
 
 end csc_fed_ctp7_arch;
 

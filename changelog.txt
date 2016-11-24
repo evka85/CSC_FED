@@ -41,3 +41,11 @@ No DAQ functionality yet, but that's coming shortly.
 --------------------
 
 Fix CSC logic global reset -- assert also after GTH reset is done by the system module
+
+--------------------
+----   1.0.5    ----
+---- 2016-11-24 ----
+--------------------
+
+Added DAQ module -- top DAQ module is still using GEM data format, but it's trivial to port it to CSC format. Input Processor was rewritten to handle CSC data, for now it only recognizes beginning and end of a CSC event and fills input fifo and event fifo accordingly, which are then read by the top DAQ module.
+In this version also "Last event FIFO" was implemented -- if it's empty then at the start of event DAQ writes one full event to it, then user can read it out 32bits at a time.

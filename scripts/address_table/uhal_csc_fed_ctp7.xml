@@ -89,5 +89,104 @@
         <node id="DISPERR_CNT" address="0x00000002" permission="r" mask="0xffff0000"/>
       </node>
     </node>
+    <node id="DAQ" address="0x00700000" >
+      <node id="CONTROL" address="0x00000000" >
+        <node id="DAQ_ENABLE" address="0x00000000" permission="rw" mask="0x00000001"/>
+        <node id="DAQ_LINK_RESET" address="0x00000000" permission="rw" mask="0x00000004"/>
+        <node id="RESET" address="0x00000000" permission="rw" mask="0x00000008"/>
+        <node id="TTS_OVERRIDE" address="0x00000000" permission="rw" mask="0x000000f0"/>
+        <node id="INPUT_ENABLE_MASK" address="0x00000000" permission="rw" mask="0xffffff00"/>
+        <node id="DAV_TIMEOUT" address="0x00000006" permission="rw" mask="0x00ffffff"/>
+      </node>
+      <node id="STATUS" address="0x00000001" >
+        <node id="DAQ_LINK_RDY" address="0x00000000" permission="r" mask="0x00000001"/>
+        <node id="DAQ_CLK_LOCKED" address="0x00000000" permission="r" mask="0x00000002"/>
+        <node id="TTC_RDY" address="0x00000000" permission="r" mask="0x00000004"/>
+        <node id="DAQ_LINK_AFULL" address="0x00000000" permission="r" mask="0x00000008"/>
+        <node id="DAQ_OUTPUT_FIFO_HAD_OVERFLOW" address="0x00000000" permission="r" mask="0x00000010"/>
+        <node id="TTC_BC0_LOCKED" address="0x00000000" permission="r" mask="0x00000020"/>
+        <node id="L1A_FIFO_HAD_OVERFLOW" address="0x00000000" permission="r" mask="0x00800000"/>
+        <node id="L1A_FIFO_IS_UNDERFLOW" address="0x00000000" permission="r" mask="0x01000000"/>
+        <node id="L1A_FIFO_IS_FULL" address="0x00000000" permission="r" mask="0x02000000"/>
+        <node id="L1A_FIFO_IS_NEAR_FULL" address="0x00000000" permission="r" mask="0x04000000"/>
+        <node id="L1A_FIFO_IS_EMPTY" address="0x00000000" permission="r" mask="0x08000000"/>
+        <node id="TTS_STATE" address="0x00000000" permission="r" mask="0xf0000000"/>
+      </node>
+      <node id="EXT_STATUS" address="0x00000002" >
+        <node id="NOTINTABLE_ERR" address="0x00000000" permission="r" mask="0x0000ffff"/>
+        <node id="DISPER_ERR" address="0x00000001" permission="r" mask="0x0000ffff"/>
+        <node id="L1AID" address="0x00000002" permission="r" mask="0x00ffffff"/>
+        <node id="EVT_SENT" address="0x00000003" permission="r" mask="0xffffffff"/>
+        <node id="MAX_DAV_TIMER" address="0x00000005" permission="r" mask="0x00ffffff"/>
+        <node id="LAST_DAV_TIMER" address="0x00000006" permission="r" mask="0x00ffffff"/>
+        <node id="L1A_FIFO_DATA_CNT" address="0x00000007" permission="r" mask="0x00001fff"/>
+        <node id="DAQ_FIFO_DATA_CNT" address="0x00000007" permission="r" mask="0x1fff0000"/>
+        <node id="L1A_FIFO_NEAR_FULL_CNT" address="0x00000008" permission="r" mask="0x0000ffff"/>
+        <node id="DAQ_FIFO_NEAR_FULL_CNT" address="0x00000008" permission="r" mask="0xffff0000"/>
+        <node id="DAQ_ALMOST_FULL_CNT" address="0x00000009" permission="r" mask="0x0000ffff"/>
+        <node id="TTS_WARN_CNT" address="0x00000009" permission="r" mask="0xffff0000"/>
+        <node id="DAQ_WORD_RATE" address="0x0000000a" permission="r" mask="0xffffffff"/>
+      </node>
+      <node id="EXT_CONTROL" address="0x0000000d" >
+        <node id="RUN_TYPE" address="0x00000000" permission="rw" mask="0x0f000000"/>
+        <node id="RUN_PARAMS" address="0x00000000" permission="rw" mask="0x00ffffff"/>
+      </node>
+      <node id="LAST_EVENT_FIFO" address="0x0000000e" >
+        <node id="EMPTY" address="0x00000000" permission="r" mask="0x00000001"/>
+        <node id="DATA" address="0x00000001" permission="r" mask="0xffffffff"/>
+      </node>
+      <node id="DMB0" address="0x00000010" >
+        <node id="STATUS" address="0x00000000" >
+          <node id="INPUT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000100"/>
+          <node id="INPUT_FIFO_HAD_UFLOW" address="0x00000000" permission="r" mask="0x00000200"/>
+          <node id="EVENT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000400"/>
+          <node id="EVT_SIZE_ERR" address="0x00000000" permission="r" mask="0x00000800"/>
+          <node id="TTS_STATE" address="0x00000000" permission="r" mask="0x0000f000"/>
+          <node id="INPUT_FIFO_IS_UFLOW" address="0x00000000" permission="r" mask="0x01000000"/>
+          <node id="INPUT_FIFO_IS_FULL" address="0x00000000" permission="r" mask="0x02000000"/>
+          <node id="INPUT_FIFO_IS_AFULL" address="0x00000000" permission="r" mask="0x04000000"/>
+          <node id="INPUT_FIFO_IS_EMPTY" address="0x00000000" permission="r" mask="0x08000000"/>
+          <node id="EVENT_FIFO_IS_UFLOW" address="0x00000000" permission="r" mask="0x10000000"/>
+          <node id="EVENT_FIFO_IS_FULL" address="0x00000000" permission="r" mask="0x20000000"/>
+          <node id="EVENT_FIFO_IS_AFULL" address="0x00000000" permission="r" mask="0x40000000"/>
+          <node id="EVENT_FIFO_IS_EMPTY" address="0x00000000" permission="r" mask="0x80000000"/>
+        </node>
+        <node id="COUNTERS" address="0x00000000" >
+          <node id="EVN" address="0x00000002" permission="r" mask="0x00ffffff"/>
+          <node id="INPUT_FIFO_DATA_CNT" address="0x00000004" permission="r" mask="0x00003fff"/>
+          <node id="EVT_FIFO_DATA_CNT" address="0x00000004" permission="r" mask="0x0fff0000"/>
+          <node id="INPUT_FIFO_NEAR_FULL_CNT" address="0x00000005" permission="r" mask="0x0000ffff"/>
+          <node id="EVT_FIFO_NEAR_FULL_CNT" address="0x00000005" permission="r" mask="0xffff0000"/>
+          <node id="DATA_WORD_RATE" address="0x00000006" permission="r" mask="0x00007fff"/>
+          <node id="EVT_RATE" address="0x00000006" permission="r" mask="0xffff8000"/>
+        </node>
+      </node>
+      <node id="DMB1" address="0x00000020" >
+        <node id="STATUS" address="0x00000000" >
+          <node id="INPUT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000100"/>
+          <node id="INPUT_FIFO_HAD_UFLOW" address="0x00000000" permission="r" mask="0x00000200"/>
+          <node id="EVENT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000400"/>
+          <node id="EVT_SIZE_ERR" address="0x00000000" permission="r" mask="0x00000800"/>
+          <node id="TTS_STATE" address="0x00000000" permission="r" mask="0x0000f000"/>
+          <node id="INPUT_FIFO_IS_UFLOW" address="0x00000000" permission="r" mask="0x01000000"/>
+          <node id="INPUT_FIFO_IS_FULL" address="0x00000000" permission="r" mask="0x02000000"/>
+          <node id="INPUT_FIFO_IS_AFULL" address="0x00000000" permission="r" mask="0x04000000"/>
+          <node id="INPUT_FIFO_IS_EMPTY" address="0x00000000" permission="r" mask="0x08000000"/>
+          <node id="EVENT_FIFO_IS_UFLOW" address="0x00000000" permission="r" mask="0x10000000"/>
+          <node id="EVENT_FIFO_IS_FULL" address="0x00000000" permission="r" mask="0x20000000"/>
+          <node id="EVENT_FIFO_IS_AFULL" address="0x00000000" permission="r" mask="0x40000000"/>
+          <node id="EVENT_FIFO_IS_EMPTY" address="0x00000000" permission="r" mask="0x80000000"/>
+        </node>
+        <node id="COUNTERS" address="0x00000000" >
+          <node id="EVN" address="0x00000002" permission="r" mask="0x00ffffff"/>
+          <node id="INPUT_FIFO_DATA_CNT" address="0x00000004" permission="r" mask="0x00003fff"/>
+          <node id="EVT_FIFO_DATA_CNT" address="0x00000004" permission="r" mask="0x0fff0000"/>
+          <node id="INPUT_FIFO_NEAR_FULL_CNT" address="0x00000005" permission="r" mask="0x0000ffff"/>
+          <node id="EVT_FIFO_NEAR_FULL_CNT" address="0x00000005" permission="r" mask="0xffff0000"/>
+          <node id="DATA_WORD_RATE" address="0x00000006" permission="r" mask="0x00007fff"/>
+          <node id="EVT_RATE" address="0x00000006" permission="r" mask="0xffff8000"/>
+        </node>
+      </node>
+    </node>
   </node>
 </node>

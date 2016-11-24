@@ -157,29 +157,30 @@ begin
     -- DAQ  
     --================================--
 
---    i_daq : entity work.daq
---        generic map(
---            g_NUM_OF_OHs => g_NUM_OF_OHs,
---            g_DAQ_CLK_FREQ => g_DAQ_CLK_FREQ
---        )
---        port map(
---            reset_i          => reset,
---            daq_clk_i        => daq_data_clk_i,
---            daq_clk_locked_i => daq_data_clk_locked_i,
---            daq_to_daqlink_o => daq_to_daqlink_o,
---            daqlink_to_daq_i => daqlink_to_daq_i,
---            ttc_clks_i       => ttc_clocks,
---            ttc_cmds_i       => ttc_cmd,
---            ttc_daq_cntrs_i  => ttc_counters,
---            ttc_status_i     => ttc_status,
---            tk_data_links_i  => tk_data_links,
---            ipb_reset_i      => ipb_reset_i,
---            ipb_clk_i        => ipb_clk_i,
---            ipb_mosi_i       => ipb_mosi_arr_i(C_IPB_SLV.daq),
---            ipb_miso_o       => ipb_miso_arr(C_IPB_SLV.daq),
---            board_sn_i       => board_id_i
---            ttc_state_o      => lalal
---        );    
+    i_daq : entity work.daq
+        generic map(
+            g_NUM_OF_DMBs => g_NUM_OF_DMBs,
+            g_DAQ_CLK_FREQ => g_DAQLINK_CLK_FREQ
+        )
+        port map(
+            reset_i          => reset,
+            daq_clk_i        => daqlink_clk_i,
+            daq_clk_locked_i => daqlink_clk_locked_i,
+            daq_to_daqlink_o => daq_to_daqlink_o,
+            daqlink_to_daq_i => daqlink_to_daq_i,
+            ttc_clks_i       => ttc_clocks,
+            ttc_cmds_i       => ttc_cmd,
+            ttc_daq_cntrs_i  => ttc_counters,
+            ttc_status_i     => ttc_status,
+            input_clk_arr_i  => csc_dmb_rx_usrclk_arr_i,
+            input_link_arr_i => csc_dmb_rx_data_arr_i,
+            ipb_reset_i      => ipb_reset_i,
+            ipb_clk_i        => ipb_clk_i,
+            ipb_mosi_i       => ipb_mosi_arr_i(C_IPB_SLV.daq),
+            ipb_miso_o       => ipb_miso_arr(C_IPB_SLV.daq),
+            board_sn_i       => board_id_i,
+            tts_ready_o      => led_tts_ready_o
+        );    
 
     --================================--
     -- System registers

@@ -8,10 +8,10 @@ package csc_pkg is
     --==  Firmware version  ==--
     --========================-- 
 
-    constant C_FIRMWARE_DATE    : std_logic_vector(31 downto 0) := x"20161123";
+    constant C_FIRMWARE_DATE    : std_logic_vector(31 downto 0) := x"20161124";
     constant C_FIRMWARE_MAJOR   : integer range 0 to 255        := 1;
     constant C_FIRMWARE_MINOR   : integer range 0 to 255        := 0;
-    constant C_FIRMWARE_BUILD   : integer range 0 to 255        := 3;
+    constant C_FIRMWARE_BUILD   : integer range 0 to 255        := 5;
 
     --======================--
     --==      General     ==--
@@ -105,24 +105,13 @@ package csc_pkg is
         err_evtfifo_full        : std_logic;
         err_infifo_underflow    : std_logic;
         err_infifo_full         : std_logic;
-        err_corrupted_vfat_data : std_logic;
-        err_vfat_block_too_big  : std_logic;
-        err_vfat_block_too_small: std_logic;
-        err_event_bigger_than_24: std_logic;
-        err_mixed_oh_bc         : std_logic;
-        err_mixed_vfat_bc       : std_logic;
-        err_mixed_vfat_ec       : std_logic;
-        cnt_corrupted_vfat      : std_logic_vector(31 downto 0);
         eb_event_num            : std_logic_vector(23 downto 0);
-        eb_max_timer            : std_logic_vector(23 downto 0);
-        eb_last_timer           : std_logic_vector(23 downto 0);
-        ep_vfat_block_data      : t_std32_array(6 downto 0);
     end record;
 
     type t_daq_input_status_arr is array(integer range <>) of t_daq_input_status;
 
     type t_daq_input_control is record
-        eb_timeout_delay        : std_logic_vector(23 downto 0);
+        lalala        : std_logic_vector(23 downto 0);
     end record;
     
     type t_daq_input_control_arr is array(integer range <>) of t_daq_input_control;
@@ -132,12 +121,12 @@ package csc_pkg is
     --====================--
 
     type t_chamber_infifo_rd is record
-        dout          : std_logic_vector(191 downto 0);
+        dout          : std_logic_vector(63 downto 0);
         rd_en         : std_logic;
         empty         : std_logic;
         valid         : std_logic;
         underflow     : std_logic;
-        data_cnt      : std_logic_vector(11 downto 0);
+        data_cnt      : std_logic_vector(13 downto 0);
     end record;
 
     type t_chamber_infifo_rd_array is array(integer range <>) of t_chamber_infifo_rd;

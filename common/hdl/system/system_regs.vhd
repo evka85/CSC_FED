@@ -3,8 +3,8 @@
 -- Engineer: Evaldas Juska (evaldas.juska@cern.ch, evka85@gmail.com)
 -- 
 -- Create Date:    15:04 2016-05-10
--- Module Name:    GEM System Registers
--- Description:    this module provides registers for GEM system-wide setting  
+-- Module Name:    System Registers
+-- Description:    this module provides registers for CSC FED system-wide setting  
 ------------------------------------------------------------------------------------------------------------------------------------------------------
 
 library ieee;
