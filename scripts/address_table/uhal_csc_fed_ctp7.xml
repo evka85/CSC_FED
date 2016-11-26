@@ -92,6 +92,7 @@
     <node id="DAQ" address="0x00400000" >
       <node id="CONTROL" address="0x00000000" >
         <node id="DAQ_ENABLE" address="0x00000000" permission="rw" mask="0x00000001"/>
+        <node id="IGNORE_AMC13" address="0x00000000" permission="rw" mask="0x00000002"/>
         <node id="DAQ_LINK_RESET" address="0x00000000" permission="rw" mask="0x00000004"/>
         <node id="RESET" address="0x00000000" permission="rw" mask="0x00000008"/>
         <node id="TTS_OVERRIDE" address="0x00000000" permission="rw" mask="0x000000f0"/>

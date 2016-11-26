@@ -171,6 +171,7 @@ architecture Behavioral of daq is
     signal input_mask           : std_logic_vector(23 downto 0) := x"000000";
     signal run_type             : std_logic_vector(3 downto 0) := x"0"; -- run type (set by software and included in the AMC header)
     signal run_params           : std_logic_vector(23 downto 0) := x"000000"; -- optional run parameters (set by software and included in the AMC header)
+    signal ignore_amc13         : std_logic := '0'; -- when this is set to true, DAQLink status is ignored (useful for local spy-only data taking) 
     
     -- DAQ counters
     signal cnt_sent_events      : unsigned(31 downto 0) := (others => '0');
@@ -419,7 +420,7 @@ begin
     );
 
     daqfifo_din <= daq_event_header & daq_event_trailer & daq_event_data;
-    daqfifo_wr_en <= daq_event_write_en;
+    daqfifo_wr_en <= daq_event_write_en and (not ignore_amc13);
     
     -- daq fifo read logic
     process(daq_clk_i)
@@ -733,7 +734,7 @@ begin
                     
                     -- have an L1A and data from all enabled inputs is ready (or these inputs have timed out)
                     if (l1afifo_empty = '0' and ((input_mask(g_NUM_OF_DMBs - 1 downto 0) and ((not chmb_evtfifos_empty) or dav_timeout_flags(g_NUM_OF_DMBs - 1 downto 0))) = input_mask(g_NUM_OF_DMBs - 1 downto 0))) then
-                        if (daq_ready = '1' and daqfifo_near_full = '0' and daq_enable = '1') then -- everybody ready?.... GO! :)
+                        if (((daq_ready = '1' and daqfifo_near_full = '0') or (ignore_amc13 = '1')) and daq_enable = '1') then -- everybody ready?.... GO! :)
                             -- start the DAQ state machine
                             daq_state <= x"1";
                             
@@ -771,28 +772,25 @@ begin
                     ----==== send the first AMC header ====----
                     if (daq_state = x"1") then
                         
-                        -- wait for the valid flag from the L1A FIFO and then populate the variables and AMC header
-                        if (l1afifo_valid = '1') then
+                        -- L1A fifo is a first-word-fallthrough fifo, so no need to check for valid (not empty is the condition to get here anyway)
                         
-                            -- fetch the L1A data
-                            e_l1a_id        := l1afifo_dout(51 downto 28);
-                            e_orbit_id      := l1afifo_dout(27 downto 12);
-                            e_bx_id         := l1afifo_dout(11 downto 0);
+                        -- fetch the L1A data
+                        e_l1a_id        := l1afifo_dout(51 downto 28);
+                        e_orbit_id      := l1afifo_dout(27 downto 12);
+                        e_bx_id         := l1afifo_dout(11 downto 0);
 
-                            -- send the data
-                            daq_event_data <= x"00" & 
-                                              e_l1a_id &   -- L1A ID
-                                              e_bx_id &   -- BX ID
-                                              x"fffff";
-                            daq_event_header <= '1';
-                            daq_event_trailer <= '0';
-                            daq_event_write_en <= '1';
-                            
-                            -- move to the next state
-                            e_word_count <= e_word_count + 1;
-                            daq_state <= x"2";
-                            
-                        end if;
+                        -- send the data
+                        daq_event_data <= x"00" & 
+                                          e_l1a_id &   -- L1A ID
+                                          e_bx_id &   -- BX ID
+                                          x"fffff";
+                        daq_event_header <= '1';
+                        daq_event_trailer <= '0';
+                        daq_event_write_en <= '1';
+                        
+                        -- move to the next state
+                        e_word_count <= e_word_count + 1;
+                        daq_state <= x"2";
                         
                     ----==== send the second AMC header ====----
                     elsif (daq_state = x"2") then
@@ -863,65 +861,58 @@ begin
                         -- reset the read enable
                         chmb_evtfifos_rd_en(e_input_idx) <= '0';
                         
-                        -- wait for the valid flag and then fetch the chamber event data
-                        if (chamber_evtfifos(e_input_idx).valid = '1') then
+                        -- this is a first-word-fallthrough fifo, so no need to check valid (and risk getting stuck here)
+                        e_chmb_l1a_id                       := chamber_evtfifos(e_input_idx).dout(59 downto 36);
+                        e_chmb_bx_id                        := chamber_evtfifos(e_input_idx).dout(35 downto 24);
+                        e_chmb_payload_size(11 downto 0)    := unsigned(chamber_evtfifos(e_input_idx).dout(23 downto 12));
+                        e_chmb_evtfifo_afull                := chamber_evtfifos(e_input_idx).dout(11);
+                        e_chmb_evtfifo_full                 := chamber_evtfifos(e_input_idx).dout(10);
+                        e_chmb_infifo_full                  := chamber_evtfifos(e_input_idx).dout(9);
+                        e_chmb_evtfifo_near_full            := chamber_evtfifos(e_input_idx).dout(8);
+                        e_chmb_infifo_near_full             := chamber_evtfifos(e_input_idx).dout(7);
+                        e_chmb_infifo_underflow             := chamber_evtfifos(e_input_idx).dout(6);
+                        e_chmb_evt_too_big                  := chamber_evtfifos(e_input_idx).dout(5);
+                        e_chmb_invalid_vfat_block           := chamber_evtfifos(e_input_idx).dout(4);
+                        e_chmb_evt_bigger_24                := chamber_evtfifos(e_input_idx).dout(3);
+                        e_chmb_mixed_oh_bc                  := chamber_evtfifos(e_input_idx).dout(2);
+                        e_chmb_mixed_vfat_bc                := chamber_evtfifos(e_input_idx).dout(1);
+                        e_chmb_mixed_vfat_ec                := chamber_evtfifos(e_input_idx).dout(0);
                         
-                            e_chmb_l1a_id                       := chamber_evtfifos(e_input_idx).dout(59 downto 36);
-                            e_chmb_bx_id                        := chamber_evtfifos(e_input_idx).dout(35 downto 24);
-                            e_chmb_payload_size(11 downto 0)    := unsigned(chamber_evtfifos(e_input_idx).dout(23 downto 12));
-                            e_chmb_evtfifo_afull                := chamber_evtfifos(e_input_idx).dout(11);
-                            e_chmb_evtfifo_full                 := chamber_evtfifos(e_input_idx).dout(10);
-                            e_chmb_infifo_full                  := chamber_evtfifos(e_input_idx).dout(9);
-                            e_chmb_evtfifo_near_full            := chamber_evtfifos(e_input_idx).dout(8);
-                            e_chmb_infifo_near_full             := chamber_evtfifos(e_input_idx).dout(7);
-                            e_chmb_infifo_underflow             := chamber_evtfifos(e_input_idx).dout(6);
-                            e_chmb_evt_too_big                  := chamber_evtfifos(e_input_idx).dout(5);
-                            e_chmb_invalid_vfat_block           := chamber_evtfifos(e_input_idx).dout(4);
-                            e_chmb_evt_bigger_24                := chamber_evtfifos(e_input_idx).dout(3);
-                            e_chmb_mixed_oh_bc                  := chamber_evtfifos(e_input_idx).dout(2);
-                            e_chmb_mixed_vfat_bc                := chamber_evtfifos(e_input_idx).dout(1);
-                            e_chmb_mixed_vfat_ec                := chamber_evtfifos(e_input_idx).dout(0);
+                        -- send the data
+                        daq_event_data <= x"000000" & -- Zero suppression flags
+                                          std_logic_vector(to_unsigned(e_input_idx, 5)) &    -- Input ID
+                                          -- OH word count
+                                          std_logic_vector(e_chmb_payload_size(11 downto 0)) &
+                                          -- input status
+                                          e_chmb_evtfifo_full &
+                                          e_chmb_infifo_full &
+                                          err_l1afifo_full &
+                                          e_chmb_evt_too_big &
+                                          e_chmb_evtfifo_near_full &
+                                          e_chmb_infifo_near_full &
+                                          l1afifo_near_full &
+                                          e_chmb_evt_bigger_24 &
+                                          e_chmb_invalid_vfat_block &
+                                          "0" & -- OOS GLIB-VFAT
+                                          "0" & -- OOS GLIB-OH
+                                          "0" & -- GLIB-VFAT BX mismatch
+                                          "0" & -- GLIB-OH BX mismatch
+                                          x"00" & "00"; -- Not used
 
-                            daq_curr_infifo_word <= unsigned(chamber_evtfifos(e_input_idx).dout(23 downto 12)) - 1;
-                            
-                            -- send the data
-                            daq_event_data <= x"000000" & -- Zero suppression flags
-                                              std_logic_vector(to_unsigned(e_input_idx, 5)) &    -- Input ID
-                                              -- OH word count
-                                              std_logic_vector(e_chmb_payload_size(11 downto 0)) &
-                                              -- input status
-                                              e_chmb_evtfifo_full &
-                                              e_chmb_infifo_full &
-                                              err_l1afifo_full &
-                                              e_chmb_evt_too_big &
-                                              e_chmb_evtfifo_near_full &
-                                              e_chmb_infifo_near_full &
-                                              l1afifo_near_full &
-                                              e_chmb_evt_bigger_24 &
-                                              e_chmb_invalid_vfat_block &
-                                              "0" & -- OOS GLIB-VFAT
-                                              "0" & -- OOS GLIB-OH
-                                              "0" & -- GLIB-VFAT BX mismatch
-                                              "0" & -- GLIB-OH BX mismatch
-                                              x"00" & "00"; -- Not used
-
-                            daq_event_header <= '0';
-                            daq_event_trailer <= '0';
-                            daq_event_write_en <= '1';
-                            
-                            -- move to the next state
-                            e_word_count <= e_word_count + 1;
-                            daq_state <= x"5";
-
-                            -- read a word from the input fifo
-                            chmb_infifos_rd_en(e_input_idx) <= '1';
+                        daq_event_header <= '0';
+                        daq_event_trailer <= '0';
+                        daq_event_write_en <= '1';
                         
-                        else
-                        
-                            daq_event_write_en <= '0';
-                            
-                        end if; 
+                        -- read a word from the input fifo
+                        chmb_infifos_rd_en(e_input_idx) <= '1';
 
+                        -- we already start reading the first word here, so decrement by 1 - the word count is guaranteed to be at least 1
+                        daq_curr_infifo_word <= unsigned(chamber_evtfifos(e_input_idx).dout(23 downto 12)) - 1;
+                        
+                        -- move to the next state
+                        e_word_count <= e_word_count + 1;
+                        daq_state <= x"5";
+                        
                     ----==== send the payload ====----
                     elsif (daq_state = x"5") then
                     
@@ -933,16 +924,12 @@ begin
                             daq_curr_infifo_word <= daq_curr_infifo_word - 1;
                         end if;
                     
-                        -- send the data!
-                        if (chamber_infifos(e_input_idx).valid = '1') then
-                            daq_event_data <= chamber_infifos(e_input_idx).dout;
-                            daq_event_header <= '0';
-                            daq_event_trailer <= '0';
-                            daq_event_write_en <= '1';
-                            e_word_count <= e_word_count + 1;
-                        else
-                            daq_event_write_en <= '0';
-                        end if;
+                        -- send the data!  (don't check for valid because it's a first-word-fallthrough fifo, also don't check for underflows - this is caught and reported outside of this process)
+                        daq_event_data <= chamber_infifos(e_input_idx).dout;
+                        daq_event_header <= '0';
+                        daq_event_trailer <= '0';
+                        daq_event_write_en <= '1';
+                        e_word_count <= e_word_count + 1;
 
                     ----==== send the GEM Chamber trailer ====----
                     elsif (daq_state = x"6") then
@@ -1092,6 +1079,7 @@ begin
 
     -- Connect read signals
     regs_read_arr(0)(REG_DAQ_CONTROL_DAQ_ENABLE_BIT) <= daq_enable;
+    regs_read_arr(0)(REG_DAQ_CONTROL_IGNORE_AMC13_BIT) <= ignore_amc13;
     regs_read_arr(0)(REG_DAQ_CONTROL_DAQ_LINK_RESET_BIT) <= reset_daqlink_ipb;
     regs_read_arr(0)(REG_DAQ_CONTROL_RESET_BIT) <= reset_local;
     regs_read_arr(0)(REG_DAQ_CONTROL_TTS_OVERRIDE_MSB downto REG_DAQ_CONTROL_TTS_OVERRIDE_LSB) <= tts_override;
@@ -1169,6 +1157,7 @@ begin
 
     -- Connect write signals
     daq_enable <= regs_write_arr(0)(REG_DAQ_CONTROL_DAQ_ENABLE_BIT);
+    ignore_amc13 <= regs_write_arr(0)(REG_DAQ_CONTROL_IGNORE_AMC13_BIT);
     reset_daqlink_ipb <= regs_write_arr(0)(REG_DAQ_CONTROL_DAQ_LINK_RESET_BIT);
     reset_local <= regs_write_arr(0)(REG_DAQ_CONTROL_RESET_BIT);
     tts_override <= regs_write_arr(0)(REG_DAQ_CONTROL_TTS_OVERRIDE_MSB downto REG_DAQ_CONTROL_TTS_OVERRIDE_LSB);
@@ -1189,6 +1178,7 @@ begin
 
     -- Defaults
     regs_defaults(0)(REG_DAQ_CONTROL_DAQ_ENABLE_BIT) <= REG_DAQ_CONTROL_DAQ_ENABLE_DEFAULT;
+    regs_defaults(0)(REG_DAQ_CONTROL_IGNORE_AMC13_BIT) <= REG_DAQ_CONTROL_IGNORE_AMC13_DEFAULT;
     regs_defaults(0)(REG_DAQ_CONTROL_DAQ_LINK_RESET_BIT) <= REG_DAQ_CONTROL_DAQ_LINK_RESET_DEFAULT;
     regs_defaults(0)(REG_DAQ_CONTROL_RESET_BIT) <= REG_DAQ_CONTROL_RESET_DEFAULT;
     regs_defaults(0)(REG_DAQ_CONTROL_TTS_OVERRIDE_MSB downto REG_DAQ_CONTROL_TTS_OVERRIDE_LSB) <= REG_DAQ_CONTROL_TTS_OVERRIDE_DEFAULT;
