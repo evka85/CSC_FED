@@ -1,6 +1,8 @@
 CSC FED Firmware Project
 ========================
 
+*-----> NOTE: This repository uses git-lfs, make sure you have it installed on your machine before cloning <----*
+
 This repository contains source code of the CSC FED firmware logic as well as board specific implementations (for now only CTP7, Virtex7 + Zynq).
 Note that this repository excludes Vivado project directories entirely to avoid generated files, although XPR files are included in directories called work_dir. Those XPR files are referencing the source code outside work_dir and once opened will generate a Vivado project in the work_dir. PLEASE DO NOT COMMIT ANY FILES FROM THE WORK_DIR OTHER THAN XPR!!! 
 
