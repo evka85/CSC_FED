@@ -107,6 +107,7 @@ if [ "$MODULE" = "DAQ" ]; then
     printf 'CSC_FED.DAQ.EXT_CONTROL.RUN_PARAMS            = 0x%x\n' $(( (`mpeek 0x65000034` & 0x00ffffff) >> 0 ))
     printf 'CSC_FED.DAQ.EXT_CONTROL.RUN_TYPE              = 0x%x\n' $(( (`mpeek 0x65000034` & 0x0f000000) >> 24 ))
     printf 'CSC_FED.DAQ.LAST_EVENT_FIFO.EMPTY             = 0x%x\n' $(( (`mpeek 0x65000038` & 0x00000001) >> 0 ))
+    printf 'CSC_FED.DAQ.LAST_EVENT_FIFO.DISABLE           = 0x%x\n' $(( (`mpeek 0x65000038` & 0x80000000) >> 31 ))
     printf 'CSC_FED.DAQ.LAST_EVENT_FIFO.DATA              = 0x%x\n' `mpeek 0x6500003c` 
     printf 'CSC_FED.DAQ.DMB0.STATUS.INPUT_FIFO_HAD_OFLOW  = 0x%x\n' $(( (`mpeek 0x65000040` & 0x00000100) >> 8 ))
     printf 'CSC_FED.DAQ.DMB0.STATUS.INPUT_FIFO_HAD_UFLOW  = 0x%x\n' $(( (`mpeek 0x65000040` & 0x00000200) >> 9 ))

@@ -161,7 +161,7 @@ architecture input_processor_arch of input_processor is
 
     -- Event processor
     signal ep_event_in_progress     : std_logic := '0';
-    signal ep_empty_event           : std_logic := '0';
+    signal ep_end_event             : std_logic := '0';
     
     -- Event builder
     signal eb_event_size            : unsigned(11 downto 0) := (others => '0');
@@ -376,9 +376,9 @@ begin
                 infifo_din              <= (others => '0');
             else
             
-                if (ep_empty_event = '1') then
+                if (ep_end_event = '1') then
                     ep_event_in_progress <= '0';
-                    ep_empty_event <= '0';
+                    ep_end_event <= '0';
                 end if;
 
                 infifo_din <= lp_word64;
@@ -391,7 +391,7 @@ begin
     
                         if (get_ddu_code_x4(lp_word64) = DDU_CODE_LONE_WORD_X4) then
                             ep_event_in_progress <= '1';
-                            ep_empty_event <= '1';
+                            ep_end_event <= '1';
                             infifo_wr_en <= '1';
                         end if;
                     
@@ -407,7 +407,8 @@ begin
                         if (eb_event_too_big = '1') then
                             ep_event_in_progress <= '0';
                         elsif (get_ddu_code_x4(lp_word64) = DDU_CODE_DMB_TRAIL2_X4) then
-                            ep_event_in_progress <= '0';
+                            ep_event_in_progress <= '1';
+                            ep_end_event <= '1';
                             infifo_wr_en <= '1';
                         else
                             -- keep on pushing to the input fifo - this is valid event data 

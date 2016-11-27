@@ -425,6 +425,10 @@ package registers is
     constant REG_DAQ_LAST_EVENT_FIFO_EMPTY_ADDR    : std_logic_vector(8 downto 0) := '0' & x"0e";
     constant REG_DAQ_LAST_EVENT_FIFO_EMPTY_BIT    : integer := 0;
 
+    constant REG_DAQ_LAST_EVENT_FIFO_DISABLE_ADDR    : std_logic_vector(8 downto 0) := '0' & x"0e";
+    constant REG_DAQ_LAST_EVENT_FIFO_DISABLE_BIT    : integer := 31;
+    constant REG_DAQ_LAST_EVENT_FIFO_DISABLE_DEFAULT : std_logic := '0';
+
     constant REG_DAQ_LAST_EVENT_FIFO_DATA_ADDR    : std_logic_vector(8 downto 0) := '0' & x"0f";
     constant REG_DAQ_LAST_EVENT_FIFO_DATA_MSB    : integer := 31;
     constant REG_DAQ_LAST_EVENT_FIFO_DATA_LSB     : integer := 0;

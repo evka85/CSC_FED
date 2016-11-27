@@ -172,6 +172,7 @@ architecture Behavioral of daq is
     signal run_type             : std_logic_vector(3 downto 0) := x"0"; -- run type (set by software and included in the AMC header)
     signal run_params           : std_logic_vector(23 downto 0) := x"000000"; -- optional run parameters (set by software and included in the AMC header)
     signal ignore_amc13         : std_logic := '0'; -- when this is set to true, DAQLink status is ignored (useful for local spy-only data taking) 
+    signal block_last_evt_fifo  : std_logic := '0'; -- if true, then events are not written to the last event fifo (could be useful to toggle this from software in order to know how many events are read exactly because sometimes you may miss empty=true) 
     
     -- DAQ counters
     signal cnt_sent_events      : unsigned(31 downto 0) := (others => '0');
@@ -752,7 +753,7 @@ begin
                             end if;
                             
                             -- if last event fifo has already been read by the user then enable writing to this fifo for the current event
-                            last_evt_fifo_en <= last_evt_fifo_empty;
+                            last_evt_fifo_en <= last_evt_fifo_empty and (not block_last_evt_fifo);
                             
                         end if;
                     -- have an L1A, but waiting for data -- start counting the time
@@ -1113,6 +1114,7 @@ begin
     regs_read_arr(13)(REG_DAQ_EXT_CONTROL_RUN_PARAMS_MSB downto REG_DAQ_EXT_CONTROL_RUN_PARAMS_LSB) <= run_params;
     regs_read_arr(13)(REG_DAQ_EXT_CONTROL_RUN_TYPE_MSB downto REG_DAQ_EXT_CONTROL_RUN_TYPE_LSB) <= run_type;
     regs_read_arr(14)(REG_DAQ_LAST_EVENT_FIFO_EMPTY_BIT) <= last_evt_fifo_empty;
+    regs_read_arr(14)(REG_DAQ_LAST_EVENT_FIFO_DISABLE_BIT) <= block_last_evt_fifo;
     regs_read_arr(15)(REG_DAQ_LAST_EVENT_FIFO_DATA_MSB downto REG_DAQ_LAST_EVENT_FIFO_DATA_LSB) <= last_evt_fifo_dout;
     regs_read_arr(16)(REG_DAQ_DMB0_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(0).err_infifo_full;
     regs_read_arr(16)(REG_DAQ_DMB0_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(0).err_infifo_underflow;
@@ -1165,6 +1167,7 @@ begin
     dav_timeout <= regs_write_arr(6)(REG_DAQ_CONTROL_DAV_TIMEOUT_MSB downto REG_DAQ_CONTROL_DAV_TIMEOUT_LSB);
     run_params <= regs_write_arr(13)(REG_DAQ_EXT_CONTROL_RUN_PARAMS_MSB downto REG_DAQ_EXT_CONTROL_RUN_PARAMS_LSB);
     run_type <= regs_write_arr(13)(REG_DAQ_EXT_CONTROL_RUN_TYPE_MSB downto REG_DAQ_EXT_CONTROL_RUN_TYPE_LSB);
+    block_last_evt_fifo <= regs_write_arr(14)(REG_DAQ_LAST_EVENT_FIFO_DISABLE_BIT);
 
     -- Connect write pulse signals
 
@@ -1186,11 +1189,13 @@ begin
     regs_defaults(6)(REG_DAQ_CONTROL_DAV_TIMEOUT_MSB downto REG_DAQ_CONTROL_DAV_TIMEOUT_LSB) <= REG_DAQ_CONTROL_DAV_TIMEOUT_DEFAULT;
     regs_defaults(13)(REG_DAQ_EXT_CONTROL_RUN_PARAMS_MSB downto REG_DAQ_EXT_CONTROL_RUN_PARAMS_LSB) <= REG_DAQ_EXT_CONTROL_RUN_PARAMS_DEFAULT;
     regs_defaults(13)(REG_DAQ_EXT_CONTROL_RUN_TYPE_MSB downto REG_DAQ_EXT_CONTROL_RUN_TYPE_LSB) <= REG_DAQ_EXT_CONTROL_RUN_TYPE_DEFAULT;
+    regs_defaults(14)(REG_DAQ_LAST_EVENT_FIFO_DISABLE_BIT) <= REG_DAQ_LAST_EVENT_FIFO_DISABLE_DEFAULT;
 
     -- Define writable regs
     regs_writable_arr(0) <= '1';
     regs_writable_arr(6) <= '1';
     regs_writable_arr(13) <= '1';
+    regs_writable_arr(14) <= '1';
 
     --==== Registers end ============================================================================
 
