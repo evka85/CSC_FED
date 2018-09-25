@@ -300,10 +300,19 @@ begin
     end generate; 
 
     -- spy link mapping
-    csc_spy_usrclk      <= clk_gth_tx_arr(CFG_TX_FIBER_TO_GTH_MAP(CFG_SPY_LINK));
-    csc_spy_rx_data     <= gth_rx_data_arr(CFG_RX_FIBER_TO_GTH_MAP(CFG_SPY_LINK));
-    csc_spy_rx_status   <= gth_rx_status_arr(CFG_RX_FIBER_TO_GTH_MAP(CFG_SPY_LINK));
-    gth_tx_data_arr(CFG_TX_FIBER_TO_GTH_MAP(CFG_SPY_LINK)) <= csc_spy_tx_data;
+    g_csc_spy_link : if CFG_USE_SPY_LINK generate
+        csc_spy_usrclk      <= clk_gth_tx_arr(CFG_TX_FIBER_TO_GTH_MAP(CFG_SPY_LINK));
+        csc_spy_rx_data     <= gth_rx_data_arr(CFG_RX_FIBER_TO_GTH_MAP(CFG_SPY_LINK));
+        csc_spy_rx_status   <= gth_rx_status_arr(CFG_RX_FIBER_TO_GTH_MAP(CFG_SPY_LINK));
+        gth_tx_data_arr(CFG_TX_FIBER_TO_GTH_MAP(CFG_SPY_LINK)) <= csc_spy_tx_data;
+    end generate;
+
+    -- spy link mapping
+    g_csc_fake_spy_link : if not CFG_USE_SPY_LINK generate
+        csc_spy_usrclk      <= '0';
+        csc_spy_rx_data     <= (rxdata => (others => '0'), rxbyteisaligned => '0', rxbyterealign => '0', rxcommadet => '0', rxdisperr => (others => '0'), rxnotintable => (others => '0'), rxchariscomma => (others => '0'), rxcharisk => (others => '0'));
+        csc_spy_rx_status   <= (rxprbserr => '0', rxbufstatus => (others => '0'), rxclkcorcnt => (others => '0'), rxresetdone => '0', RXPMARESETDONE => '0', RXDLYSRESETDONE => '0', RXPHALIGNDONE => '0', RXSYNCDONE => '0', RXSYNCOUT => '0', rxdisperr => (others => '0'), rxnotintable => (others => '0'));
+    end generate;
 
     -------------------------- DEBUG ---------------------------------
     i_dmb_rx_ila_inst : entity work.gt_rx_link_ila_wrapper

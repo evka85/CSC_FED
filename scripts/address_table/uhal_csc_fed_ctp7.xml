@@ -98,6 +98,8 @@
         <node id="TTS_OVERRIDE" address="0x00000000" permission="rw" mask="0x000000f0"/>
         <node id="INPUT_ENABLE_MASK" address="0x00000000" permission="rw" mask="0xffffff00"/>
         <node id="DAV_TIMEOUT" address="0x00000006" permission="rw" mask="0x00ffffff"/>
+        <node id="FREEZE_ON_ERROR" address="0x00000006" permission="rw" mask="0x01000000"/>
+        <node id="RESET_TILL_RESYNC" address="0x00000006" permission="rw" mask="0x02000000"/>
       </node>
       <node id="STATUS" address="0x00000001" >
         <node id="DAQ_LINK_RDY" address="0x00000000" permission="r" mask="0x00000001"/>

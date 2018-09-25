@@ -121,10 +121,12 @@ architecture Behavioral of daq is
     -- Reset
     signal reset_global         : std_logic := '1';
     signal reset_daq_async      : std_logic := '1';
+    signal reset_daq_async_dly  : std_logic := '1';
     signal reset_daq            : std_logic := '1';
     signal reset_daqlink        : std_logic := '1'; -- should only be done once at powerup
     signal reset_pwrup          : std_logic := '1';
     signal reset_local          : std_logic := '1';
+    signal reset_local_latched  : std_logic := '0';
     signal reset_daqlink_ipb    : std_logic := '0';
 
     -- DAQlink
@@ -151,14 +153,22 @@ architecture Behavioral of daq is
     signal tts_busy             : std_logic := '0'; -- I'm busy - NO TRIGGERS FOR NOW, PLEASE
     signal tts_override         : std_logic_vector(3 downto 0) := x"0"; -- this can be set via IPbus and will override the TTS state if it's not x"0" (regardless of reset_daq and daq_enable)
     
+    signal tts_chmb_critical_arr: std_logic_vector(g_NUM_OF_DMBs - 1 downto 0) := (others => '0'); -- input critical error detected - RESYNC/RESET NEEDED
+    signal tts_chmb_warning_arr : std_logic_vector(g_NUM_OF_DMBs - 1 downto 0) := (others => '0'); -- input overflow warning - STOP TRIGGERS
+    signal tts_chmb_oos_arr     : std_logic_vector(g_NUM_OF_DMBs - 1 downto 0) := (others => '0'); -- input out-of-sync - RESYNC NEEDED
     signal tts_chmb_critical    : std_logic := '0'; -- input critical error detected - RESYNC/RESET NEEDED
     signal tts_chmb_warning     : std_logic := '0'; -- input overflow warning - STOP TRIGGERS
-    signal tts_chmb_out_of_sync : std_logic := '0'; -- input out-of-sync - RESYNC NEEDED
+    signal tts_chmb_oos         : std_logic := '0'; -- input out-of-sync - RESYNC NEEDED
 
     signal tts_start_cntdwn_chmb: unsigned(7 downto 0) := x"ff";
     signal tts_start_cntdwn     : unsigned(7 downto 0) := x"ff";
 
     signal tts_warning_cnt      : std_logic_vector(15 downto 0);
+
+    -- Resync
+    signal resync_mode          : std_logic := '0'; -- when this signal is asserted it means that we received a resync and we're still processing the L1A fifo and holding TTS in BUSY
+    signal resync_done          : std_logic := '0'; -- when this is asserted it means that L1As have been drained and we're ready to reset the DAQ and tell AMC13 that we're done
+    signal resync_done_delayed  : std_logic := '0';
 
     -- Error signals transfered to TTS clk domain
     signal tts_chmb_critical_tts_clk    : std_logic := '0'; -- tts_chmb_critical transfered to TTS clock domain
@@ -172,7 +182,9 @@ architecture Behavioral of daq is
     signal run_type             : std_logic_vector(3 downto 0) := x"0"; -- run type (set by software and included in the AMC header)
     signal run_params           : std_logic_vector(23 downto 0) := x"000000"; -- optional run parameters (set by software and included in the AMC header)
     signal ignore_amc13         : std_logic := '0'; -- when this is set to true, DAQLink status is ignored (useful for local spy-only data taking) 
-    signal block_last_evt_fifo  : std_logic := '0'; -- if true, then events are not written to the last event fifo (could be useful to toggle this from software in order to know how many events are read exactly because sometimes you may miss empty=true) 
+    signal block_last_evt_fifo  : std_logic := '0'; -- if true, then events are not written to the last event fifo (could be useful to toggle this from software in order to know how many events are read exactly because sometimes you may miss empty=true)
+    signal freeze_on_error      : std_logic := '0'; -- this is a debug feature which when turned on will start sending only IDLE words to all input processors as soon as TTS error is detected
+    signal reset_till_resync    : std_logic := '0'; -- if this is true, then after the user removes the reset, this module will still stay in reset till the resync is received. This is handy for starting to take data in the middle of an active run.
     
     -- DAQ counters
     signal cnt_sent_events      : unsigned(31 downto 0) := (others => '0');
@@ -273,43 +285,6 @@ architecture Behavioral of daq is
     signal regs_writable_arr    : std_logic_vector(REG_DAQ_NUM_REGS - 1 downto 0) := (others => '0');
     ------ Register signals end ----------------------------------------------
 
-    
-    -- Debug flags for ChipScope
---    attribute MARK_DEBUG : string;
---    attribute MARK_DEBUG of reset_daq           : signal is "TRUE";
---    attribute MARK_DEBUG of daq_clk_i           : signal is "TRUE";
---
---    attribute MARK_DEBUG of dav_timer           : signal is "TRUE";
---    attribute MARK_DEBUG of max_dav_timer       : signal is "TRUE";
---    attribute MARK_DEBUG of last_dav_timer      : signal is "TRUE";
---    attribute MARK_DEBUG of dav_timeout         : signal is "TRUE";
---    attribute MARK_DEBUG of dav_timeout_flags   : signal is "TRUE";
---
---    attribute MARK_DEBUG of daq_state           : signal is "TRUE";
---    attribute MARK_DEBUG of daq_curr_vfat_block : signal is "TRUE";
---    attribute MARK_DEBUG of daq_curr_block_word : signal is "TRUE";
---
---    attribute MARK_DEBUG of daq_event_data      : signal is "TRUE";
---    attribute MARK_DEBUG of daq_event_write_en  : signal is "TRUE";
---    attribute MARK_DEBUG of daq_event_header    : signal is "TRUE";
---    attribute MARK_DEBUG of daq_event_trailer   : signal is "TRUE";
---    attribute MARK_DEBUG of daq_ready           : signal is "TRUE";
---    attribute MARK_DEBUG of daq_almost_full     : signal is "TRUE";
---    
---    attribute MARK_DEBUG of input_mask          : signal is "TRUE";
---    attribute MARK_DEBUG of e_input_idx         : signal is "TRUE";
---    attribute MARK_DEBUG of e_word_count        : signal is "TRUE";
---    attribute MARK_DEBUG of e_dav_mask          : signal is "TRUE";
---    attribute MARK_DEBUG of e_dav_count         : signal is "TRUE";
---    
---    attribute MARK_DEBUG of l1afifo_dout        : signal is "TRUE";
---    attribute MARK_DEBUG of l1afifo_rd_en       : signal is "TRUE";
---    attribute MARK_DEBUG of l1afifo_empty       : signal is "TRUE";
---    
---    attribute MARK_DEBUG of chmb_evtfifos_empty : signal is "TRUE";
---    attribute MARK_DEBUG of chmb_evtfifos_rd_en : signal is "TRUE";
---    attribute MARK_DEBUG of chmb_infifos_rd_en  : signal is "TRUE";
-    
 begin
 
     -- TODO DAQ main tasks:
@@ -325,7 +300,7 @@ begin
     --================================--
     
     daq_to_daqlink_o.reset <= '0'; -- will need to investigate this later
-    daq_to_daqlink_o.resync <= '0'; -- will need to investigate this later
+    daq_to_daqlink_o.resync <= resync_done_delayed;
     daq_to_daqlink_o.trig <= x"00";
     daq_to_daqlink_o.ttc_clk <= ttc_clks_i.clk_40;
     daq_to_daqlink_o.ttc_bc0 <= ttc_cmds_i.bc0;
@@ -343,6 +318,16 @@ begin
     daq_disper_err_cnt <= daqlink_to_daq_i.disperr_cnt;
     daq_notintable_err_cnt <= daqlink_to_daq_i.notintable_cnt;
     
+    i_resync_delay : entity work.synchronizer
+        generic map(
+            N_STAGES => 4
+        )
+        port map(
+            async_i => resync_done,
+            clk_i   => ttc_clks_i.clk_40,
+            sync_o  => resync_done_delayed
+        );
+    
     --================================--
     -- Resets
     --================================--
@@ -357,7 +342,7 @@ begin
             sync_o  => reset_global
         );
     
-    reset_daq_async <= reset_pwrup or reset_global or reset_local;
+    reset_daq_async <= reset_pwrup or reset_global or reset_local or resync_done_delayed or reset_local_latched;
     reset_daqlink <= reset_pwrup or reset_global or reset_daqlink_ipb;
     
     -- Reset after powerup
@@ -375,10 +360,46 @@ begin
         end if;
     end process;
 
+    -- delay and extend the reset pulse
+
+    i_rst_delay : entity work.synchronizer
+        generic map(
+            N_STAGES => 4
+        )
+        port map(
+            async_i => reset_daq_async,
+            clk_i   => ttc_clks_i.clk_40,
+            sync_o  => reset_daq_async_dly
+        );
+
+    i_rst_extend : entity work.pulse_extend
+        generic map(
+            DELAY_CNT_LENGTH => 3
+        )
+        port map(
+            clk_i          => ttc_clks_i.clk_40,
+            rst_i          => '0',
+            pulse_length_i => "111",
+            pulse_i        => reset_daq_async_dly,
+            pulse_o        => reset_daq
+        );
+
+    -- if reset_till_resync option is enabled, latch the user requested reset_local till a resync is received
+    
     process(ttc_clks_i.clk_40)
     begin
         if (rising_edge(ttc_clks_i.clk_40)) then
-            reset_daq <= reset_daq_async;
+            if (reset_till_resync = '1') then
+                if (reset_local = '1') then
+                    reset_local_latched <= '1'; 
+                elsif (ttc_cmds_i.resync = '1') then
+                    reset_local_latched  <= '0';
+                else 
+                    reset_local_latched <= reset_local_latched;
+                end if;
+            else
+                reset_local_latched <= '0';
+            end if;
         end if;
     end process;
 
@@ -509,7 +530,7 @@ begin
                 err_l1afifo_full <= '0';
                 l1afifo_wr_en <= '0';
             else
-                if (ttc_cmds_i.l1a = '1') then
+                if ((ttc_cmds_i.l1a = '1') and (freeze_on_error = '0' or tts_critical_error = '0')) then
                     if (l1afifo_full = '0') then
                         l1afifo_din <= ttc_daq_cntrs_i.l1id & ttc_daq_cntrs_i.orbit & ttc_daq_cntrs_i.bx;
                         l1afifo_wr_en <= '1';
@@ -554,7 +575,7 @@ begin
             reset_i                     => reset_daq,
 
             -- Config
-            input_enable_i              => input_mask(i),
+            input_enable_i              => input_mask(i) and not (freeze_on_error and tts_critical_error),
 
             -- FIFOs
             fifo_rd_clk_i               => daq_clk_i,
@@ -597,16 +618,37 @@ begin
         if (rising_edge(input_clk_arr_i(0))) then
             if (reset_daq = '1') then
                 tts_chmb_critical <= '0';
-                tts_chmb_out_of_sync <= '0';
+                tts_chmb_oos <= '0';
                 tts_chmb_warning <= '0';
-                tts_start_cntdwn_chmb <= x"ff";
+                tts_chmb_critical_arr <= (others => '0');
+                tts_chmb_oos_arr <= (others => '0');
+                tts_chmb_warning_arr <= (others => '0');
+                tts_start_cntdwn_chmb <= x"32";
             else
-                if (tts_start_cntdwn_chmb /= x"00") then
-                    for I in 0 to (g_NUM_OF_DMBs - 1) loop
-                        tts_chmb_critical <= tts_chmb_critical or (chmb_tts_states(I)(2) and input_mask(I));
-                        tts_chmb_out_of_sync <= tts_chmb_out_of_sync or (chmb_tts_states(I)(1) and input_mask(I));
-                        tts_chmb_warning <= tts_chmb_warning or (chmb_tts_states(I)(0) and input_mask(I));
+                if (tts_start_cntdwn_chmb = x"00") then
+                    for i in 0 to (g_NUM_OF_DMBs - 1) loop
+                        tts_chmb_critical_arr(i) <= chmb_tts_states(i)(2) and input_mask(i);
+                        tts_chmb_oos_arr(i) <= chmb_tts_states(i)(1) and input_mask(i);
+                        tts_chmb_warning_arr(i) <= chmb_tts_states(i)(0) and input_mask(i);
                     end loop;                
+                    
+                    if (tts_chmb_critical = '1' or or_reduce(tts_chmb_critical_arr) = '1') then
+                        tts_chmb_critical <= '1';
+                    else
+                        tts_chmb_critical <= '0';
+                    end if;
+                    
+                    if (tts_chmb_oos = '1' or or_reduce(tts_chmb_oos_arr) = '1') then
+                        tts_chmb_oos <= '1';
+                    else
+                        tts_chmb_oos <= '0';
+                    end if;
+                    
+                    if (or_reduce(tts_chmb_warning_arr) = '1') then
+                        tts_chmb_warning <= '1';
+                    else
+                        tts_chmb_warning <= '0';
+                    end if;
                 else
                     tts_start_cntdwn_chmb <= tts_start_cntdwn_chmb - 1;
                 end if;
@@ -616,7 +658,7 @@ begin
 
     i_tts_sync_chmb_error   : entity work.synchronizer generic map(N_STAGES => 2) port map(async_i => tts_chmb_critical,    clk_i => ttc_clks_i.clk_40, sync_o  => tts_chmb_critical_tts_clk);
     i_tts_sync_chmb_warn    : entity work.synchronizer generic map(N_STAGES => 2) port map(async_i => tts_chmb_warning,     clk_i => ttc_clks_i.clk_40, sync_o  => tts_chmb_warning_tts_clk);
-    i_tts_sync_chmb_oos     : entity work.synchronizer generic map(N_STAGES => 2) port map(async_i => tts_chmb_out_of_sync, clk_i => ttc_clks_i.clk_40, sync_o  => tts_chmb_out_of_sync_tts_clk);
+    i_tts_sync_chmb_oos     : entity work.synchronizer generic map(N_STAGES => 2) port map(async_i => tts_chmb_oos,         clk_i => ttc_clks_i.clk_40, sync_o  => tts_chmb_out_of_sync_tts_clk);
     i_tts_sync_daqfifo_full : entity work.synchronizer generic map(N_STAGES => 2) port map(async_i => err_daqfifo_full,     clk_i => ttc_clks_i.clk_40, sync_o  => err_daqfifo_full_tts_clk);
 
     process (ttc_clks_i.clk_40)
@@ -627,9 +669,9 @@ begin
                 tts_out_of_sync <= '0';
                 tts_warning <= '0';
                 tts_busy <= '1';
-                tts_start_cntdwn <= x"ff";
+                tts_start_cntdwn <= x"32";
             else
-                if (tts_start_cntdwn /= x"00") then
+                if (tts_start_cntdwn = x"00") then
                     tts_busy <= '0';
                     tts_critical_error <= err_l1afifo_full or tts_chmb_critical_tts_clk or err_daqfifo_full_tts_clk;
                     tts_out_of_sync <= tts_chmb_out_of_sync_tts_clk;
@@ -643,7 +685,7 @@ begin
 
     tts_state <= tts_override when (tts_override /= x"0") else
                  x"8" when (daq_enable = '0') else
-                 x"4" when (tts_busy = '1') else
+                 x"4" when (tts_busy = '1' or resync_mode = '1') else
                  x"c" when (tts_critical_error = '1') else
                  x"2" when (tts_out_of_sync = '1') else
                  x"1" when (tts_warning = '1') else
@@ -661,6 +703,26 @@ begin
         en_i      => tts_warning,
         count_o   => tts_warning_cnt
     );
+
+    -- resync handling
+    process(ttc_clks_i.clk_40)
+    begin
+        if (rising_edge(ttc_clks_i.clk_40)) then
+            if (reset_daq = '1') then
+                resync_mode <= '0';
+                resync_done <= '0';
+            else
+                if (ttc_cmds_i.resync = '1') then
+                    resync_mode <= '1';
+                end if;
+                
+                -- wait for all L1As to be processed and output buffer drained and then reset everything (resync_done triggers the reset_daq)
+                if (resync_mode = '1' and l1afifo_empty = '1' and daq_state = x"0" and (daqfifo_empty = '1' or ignore_amc13 = '1')) then
+                    resync_done <= '1';
+                end if;
+            end if;
+        end if;
+    end process;
      
     --================================--
     -- Event shipping to DAQLink
@@ -1077,6 +1139,116 @@ begin
     regs_addresses(23)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"24";
     regs_addresses(24)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"25";
     regs_addresses(25)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"26";
+    regs_addresses(26)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"30";
+    regs_addresses(27)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"32";
+    regs_addresses(28)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"34";
+    regs_addresses(29)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"35";
+    regs_addresses(30)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"36";
+    regs_addresses(31)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"40";
+    regs_addresses(32)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"42";
+    regs_addresses(33)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"44";
+    regs_addresses(34)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"45";
+    regs_addresses(35)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"46";
+    regs_addresses(36)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"50";
+    regs_addresses(37)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"52";
+    regs_addresses(38)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"54";
+    regs_addresses(39)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"55";
+    regs_addresses(40)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"56";
+    regs_addresses(41)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"60";
+    regs_addresses(42)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"62";
+    regs_addresses(43)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"64";
+    regs_addresses(44)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"65";
+    regs_addresses(45)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"66";
+    regs_addresses(46)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"70";
+    regs_addresses(47)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"72";
+    regs_addresses(48)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"74";
+    regs_addresses(49)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"75";
+    regs_addresses(50)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"76";
+    regs_addresses(51)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"80";
+    regs_addresses(52)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"82";
+    regs_addresses(53)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"84";
+    regs_addresses(54)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"85";
+    regs_addresses(55)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"86";
+    regs_addresses(56)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"90";
+    regs_addresses(57)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"92";
+    regs_addresses(58)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"94";
+    regs_addresses(59)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"95";
+    regs_addresses(60)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"96";
+    regs_addresses(61)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"a0";
+    regs_addresses(62)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"a2";
+    regs_addresses(63)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"a4";
+    regs_addresses(64)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"a5";
+    regs_addresses(65)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"a6";
+    regs_addresses(66)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"b0";
+    regs_addresses(67)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"b2";
+    regs_addresses(68)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"b4";
+    regs_addresses(69)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"b5";
+    regs_addresses(70)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"b6";
+    regs_addresses(71)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"c0";
+    regs_addresses(72)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"c2";
+    regs_addresses(73)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"c4";
+    regs_addresses(74)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"c5";
+    regs_addresses(75)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"c6";
+    regs_addresses(76)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"d0";
+    regs_addresses(77)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"d2";
+    regs_addresses(78)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"d4";
+    regs_addresses(79)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"d5";
+    regs_addresses(80)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"d6";
+    regs_addresses(81)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"e0";
+    regs_addresses(82)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"e2";
+    regs_addresses(83)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"e4";
+    regs_addresses(84)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"e5";
+    regs_addresses(85)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"e6";
+    regs_addresses(86)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"f0";
+    regs_addresses(87)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"f2";
+    regs_addresses(88)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"f4";
+    regs_addresses(89)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"f5";
+    regs_addresses(90)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '0' & x"f6";
+    regs_addresses(91)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"00";
+    regs_addresses(92)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"02";
+    regs_addresses(93)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"04";
+    regs_addresses(94)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"05";
+    regs_addresses(95)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"06";
+    regs_addresses(96)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"10";
+    regs_addresses(97)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"12";
+    regs_addresses(98)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"14";
+    regs_addresses(99)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"15";
+    regs_addresses(100)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"16";
+    regs_addresses(101)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"20";
+    regs_addresses(102)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"22";
+    regs_addresses(103)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"24";
+    regs_addresses(104)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"25";
+    regs_addresses(105)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"26";
+    regs_addresses(106)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"30";
+    regs_addresses(107)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"32";
+    regs_addresses(108)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"34";
+    regs_addresses(109)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"35";
+    regs_addresses(110)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"36";
+    regs_addresses(111)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"40";
+    regs_addresses(112)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"42";
+    regs_addresses(113)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"44";
+    regs_addresses(114)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"45";
+    regs_addresses(115)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"46";
+    regs_addresses(116)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"50";
+    regs_addresses(117)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"52";
+    regs_addresses(118)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"54";
+    regs_addresses(119)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"55";
+    regs_addresses(120)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"56";
+    regs_addresses(121)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"60";
+    regs_addresses(122)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"62";
+    regs_addresses(123)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"64";
+    regs_addresses(124)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"65";
+    regs_addresses(125)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"66";
+    regs_addresses(126)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"70";
+    regs_addresses(127)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"72";
+    regs_addresses(128)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"74";
+    regs_addresses(129)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"75";
+    regs_addresses(130)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"76";
+    regs_addresses(131)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"80";
+    regs_addresses(132)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"82";
+    regs_addresses(133)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"84";
+    regs_addresses(134)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"85";
+    regs_addresses(135)(REG_DAQ_ADDRESS_MSB downto REG_DAQ_ADDRESS_LSB) <= '1' & x"86";
 
     -- Connect read signals
     regs_read_arr(0)(REG_DAQ_CONTROL_DAQ_ENABLE_BIT) <= daq_enable;
@@ -1102,6 +1274,8 @@ begin
     regs_read_arr(4)(REG_DAQ_EXT_STATUS_L1AID_MSB downto REG_DAQ_EXT_STATUS_L1AID_LSB) <= ttc_daq_cntrs_i.l1id;
     regs_read_arr(5)(REG_DAQ_EXT_STATUS_EVT_SENT_MSB downto REG_DAQ_EXT_STATUS_EVT_SENT_LSB) <= std_logic_vector(cnt_sent_events);
     regs_read_arr(6)(REG_DAQ_CONTROL_DAV_TIMEOUT_MSB downto REG_DAQ_CONTROL_DAV_TIMEOUT_LSB) <= dav_timeout;
+    regs_read_arr(6)(REG_DAQ_CONTROL_FREEZE_ON_ERROR_BIT) <= freeze_on_error;
+    regs_read_arr(6)(REG_DAQ_CONTROL_RESET_TILL_RESYNC_BIT) <= reset_till_resync;
     regs_read_arr(7)(REG_DAQ_EXT_STATUS_MAX_DAV_TIMER_MSB downto REG_DAQ_EXT_STATUS_MAX_DAV_TIMER_LSB) <= std_logic_vector(max_dav_timer);
     regs_read_arr(8)(REG_DAQ_EXT_STATUS_LAST_DAV_TIMER_MSB downto REG_DAQ_EXT_STATUS_LAST_DAV_TIMER_LSB) <= std_logic_vector(last_dav_timer);
     regs_read_arr(9)(REG_DAQ_EXT_STATUS_L1A_FIFO_DATA_CNT_MSB downto REG_DAQ_EXT_STATUS_L1A_FIFO_DATA_CNT_LSB) <= l1afifo_data_cnt;
@@ -1156,6 +1330,446 @@ begin
     regs_read_arr(24)(REG_DAQ_DMB1_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB1_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(1).evtfifo_near_full_cnt;
     regs_read_arr(25)(REG_DAQ_DMB1_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB1_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(1).infifo_wr_rate;
     regs_read_arr(25)(REG_DAQ_DMB1_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB1_COUNTERS_EVT_RATE_LSB) <= input_status_arr(1).evtfifo_wr_rate;
+    regs_read_arr(26)(REG_DAQ_DMB2_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(2).err_infifo_full;
+    regs_read_arr(26)(REG_DAQ_DMB2_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(2).err_infifo_underflow;
+    regs_read_arr(26)(REG_DAQ_DMB2_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(2).err_evtfifo_full;
+    regs_read_arr(26)(REG_DAQ_DMB2_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(2).err_event_too_big;
+    regs_read_arr(26)(REG_DAQ_DMB2_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB2_STATUS_TTS_STATE_LSB) <= input_status_arr(2).tts_state;
+    regs_read_arr(26)(REG_DAQ_DMB2_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(2).infifo_underflow;
+    regs_read_arr(26)(REG_DAQ_DMB2_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(2).infifo_full;
+    regs_read_arr(26)(REG_DAQ_DMB2_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(2).infifo_near_full;
+    regs_read_arr(26)(REG_DAQ_DMB2_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(2).infifo_empty;
+    regs_read_arr(26)(REG_DAQ_DMB2_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(2).evtfifo_underflow;
+    regs_read_arr(26)(REG_DAQ_DMB2_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(2).evtfifo_full;
+    regs_read_arr(26)(REG_DAQ_DMB2_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(2).evtfifo_near_full;
+    regs_read_arr(26)(REG_DAQ_DMB2_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(2).evtfifo_empty;
+    regs_read_arr(27)(REG_DAQ_DMB2_COUNTERS_EVN_MSB downto REG_DAQ_DMB2_COUNTERS_EVN_LSB) <= input_status_arr(2).eb_event_num;
+    regs_read_arr(28)(REG_DAQ_DMB2_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB2_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(2).data_cnt;
+    regs_read_arr(28)(REG_DAQ_DMB2_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB2_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(2).data_cnt;
+    regs_read_arr(29)(REG_DAQ_DMB2_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB2_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(2).infifo_near_full_cnt;
+    regs_read_arr(29)(REG_DAQ_DMB2_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB2_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(2).evtfifo_near_full_cnt;
+    regs_read_arr(30)(REG_DAQ_DMB2_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB2_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(2).infifo_wr_rate;
+    regs_read_arr(30)(REG_DAQ_DMB2_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB2_COUNTERS_EVT_RATE_LSB) <= input_status_arr(2).evtfifo_wr_rate;
+    regs_read_arr(31)(REG_DAQ_DMB3_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(3).err_infifo_full;
+    regs_read_arr(31)(REG_DAQ_DMB3_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(3).err_infifo_underflow;
+    regs_read_arr(31)(REG_DAQ_DMB3_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(3).err_evtfifo_full;
+    regs_read_arr(31)(REG_DAQ_DMB3_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(3).err_event_too_big;
+    regs_read_arr(31)(REG_DAQ_DMB3_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB3_STATUS_TTS_STATE_LSB) <= input_status_arr(3).tts_state;
+    regs_read_arr(31)(REG_DAQ_DMB3_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(3).infifo_underflow;
+    regs_read_arr(31)(REG_DAQ_DMB3_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(3).infifo_full;
+    regs_read_arr(31)(REG_DAQ_DMB3_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(3).infifo_near_full;
+    regs_read_arr(31)(REG_DAQ_DMB3_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(3).infifo_empty;
+    regs_read_arr(31)(REG_DAQ_DMB3_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(3).evtfifo_underflow;
+    regs_read_arr(31)(REG_DAQ_DMB3_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(3).evtfifo_full;
+    regs_read_arr(31)(REG_DAQ_DMB3_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(3).evtfifo_near_full;
+    regs_read_arr(31)(REG_DAQ_DMB3_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(3).evtfifo_empty;
+    regs_read_arr(32)(REG_DAQ_DMB3_COUNTERS_EVN_MSB downto REG_DAQ_DMB3_COUNTERS_EVN_LSB) <= input_status_arr(3).eb_event_num;
+    regs_read_arr(33)(REG_DAQ_DMB3_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB3_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(3).data_cnt;
+    regs_read_arr(33)(REG_DAQ_DMB3_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB3_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(3).data_cnt;
+    regs_read_arr(34)(REG_DAQ_DMB3_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB3_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(3).infifo_near_full_cnt;
+    regs_read_arr(34)(REG_DAQ_DMB3_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB3_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(3).evtfifo_near_full_cnt;
+    regs_read_arr(35)(REG_DAQ_DMB3_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB3_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(3).infifo_wr_rate;
+    regs_read_arr(35)(REG_DAQ_DMB3_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB3_COUNTERS_EVT_RATE_LSB) <= input_status_arr(3).evtfifo_wr_rate;
+    regs_read_arr(36)(REG_DAQ_DMB4_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(4).err_infifo_full;
+    regs_read_arr(36)(REG_DAQ_DMB4_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(4).err_infifo_underflow;
+    regs_read_arr(36)(REG_DAQ_DMB4_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(4).err_evtfifo_full;
+    regs_read_arr(36)(REG_DAQ_DMB4_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(4).err_event_too_big;
+    regs_read_arr(36)(REG_DAQ_DMB4_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB4_STATUS_TTS_STATE_LSB) <= input_status_arr(4).tts_state;
+    regs_read_arr(36)(REG_DAQ_DMB4_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(4).infifo_underflow;
+    regs_read_arr(36)(REG_DAQ_DMB4_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(4).infifo_full;
+    regs_read_arr(36)(REG_DAQ_DMB4_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(4).infifo_near_full;
+    regs_read_arr(36)(REG_DAQ_DMB4_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(4).infifo_empty;
+    regs_read_arr(36)(REG_DAQ_DMB4_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(4).evtfifo_underflow;
+    regs_read_arr(36)(REG_DAQ_DMB4_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(4).evtfifo_full;
+    regs_read_arr(36)(REG_DAQ_DMB4_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(4).evtfifo_near_full;
+    regs_read_arr(36)(REG_DAQ_DMB4_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(4).evtfifo_empty;
+    regs_read_arr(37)(REG_DAQ_DMB4_COUNTERS_EVN_MSB downto REG_DAQ_DMB4_COUNTERS_EVN_LSB) <= input_status_arr(4).eb_event_num;
+    regs_read_arr(38)(REG_DAQ_DMB4_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB4_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(4).data_cnt;
+    regs_read_arr(38)(REG_DAQ_DMB4_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB4_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(4).data_cnt;
+    regs_read_arr(39)(REG_DAQ_DMB4_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB4_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(4).infifo_near_full_cnt;
+    regs_read_arr(39)(REG_DAQ_DMB4_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB4_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(4).evtfifo_near_full_cnt;
+    regs_read_arr(40)(REG_DAQ_DMB4_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB4_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(4).infifo_wr_rate;
+    regs_read_arr(40)(REG_DAQ_DMB4_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB4_COUNTERS_EVT_RATE_LSB) <= input_status_arr(4).evtfifo_wr_rate;
+    regs_read_arr(41)(REG_DAQ_DMB5_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(5).err_infifo_full;
+    regs_read_arr(41)(REG_DAQ_DMB5_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(5).err_infifo_underflow;
+    regs_read_arr(41)(REG_DAQ_DMB5_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(5).err_evtfifo_full;
+    regs_read_arr(41)(REG_DAQ_DMB5_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(5).err_event_too_big;
+    regs_read_arr(41)(REG_DAQ_DMB5_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB5_STATUS_TTS_STATE_LSB) <= input_status_arr(5).tts_state;
+    regs_read_arr(41)(REG_DAQ_DMB5_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(5).infifo_underflow;
+    regs_read_arr(41)(REG_DAQ_DMB5_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(5).infifo_full;
+    regs_read_arr(41)(REG_DAQ_DMB5_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(5).infifo_near_full;
+    regs_read_arr(41)(REG_DAQ_DMB5_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(5).infifo_empty;
+    regs_read_arr(41)(REG_DAQ_DMB5_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(5).evtfifo_underflow;
+    regs_read_arr(41)(REG_DAQ_DMB5_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(5).evtfifo_full;
+    regs_read_arr(41)(REG_DAQ_DMB5_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(5).evtfifo_near_full;
+    regs_read_arr(41)(REG_DAQ_DMB5_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(5).evtfifo_empty;
+    regs_read_arr(42)(REG_DAQ_DMB5_COUNTERS_EVN_MSB downto REG_DAQ_DMB5_COUNTERS_EVN_LSB) <= input_status_arr(5).eb_event_num;
+    regs_read_arr(43)(REG_DAQ_DMB5_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB5_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(5).data_cnt;
+    regs_read_arr(43)(REG_DAQ_DMB5_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB5_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(5).data_cnt;
+    regs_read_arr(44)(REG_DAQ_DMB5_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB5_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(5).infifo_near_full_cnt;
+    regs_read_arr(44)(REG_DAQ_DMB5_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB5_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(5).evtfifo_near_full_cnt;
+    regs_read_arr(45)(REG_DAQ_DMB5_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB5_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(5).infifo_wr_rate;
+    regs_read_arr(45)(REG_DAQ_DMB5_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB5_COUNTERS_EVT_RATE_LSB) <= input_status_arr(5).evtfifo_wr_rate;
+    regs_read_arr(46)(REG_DAQ_DMB6_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(6).err_infifo_full;
+    regs_read_arr(46)(REG_DAQ_DMB6_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(6).err_infifo_underflow;
+    regs_read_arr(46)(REG_DAQ_DMB6_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(6).err_evtfifo_full;
+    regs_read_arr(46)(REG_DAQ_DMB6_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(6).err_event_too_big;
+    regs_read_arr(46)(REG_DAQ_DMB6_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB6_STATUS_TTS_STATE_LSB) <= input_status_arr(6).tts_state;
+    regs_read_arr(46)(REG_DAQ_DMB6_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(6).infifo_underflow;
+    regs_read_arr(46)(REG_DAQ_DMB6_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(6).infifo_full;
+    regs_read_arr(46)(REG_DAQ_DMB6_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(6).infifo_near_full;
+    regs_read_arr(46)(REG_DAQ_DMB6_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(6).infifo_empty;
+    regs_read_arr(46)(REG_DAQ_DMB6_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(6).evtfifo_underflow;
+    regs_read_arr(46)(REG_DAQ_DMB6_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(6).evtfifo_full;
+    regs_read_arr(46)(REG_DAQ_DMB6_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(6).evtfifo_near_full;
+    regs_read_arr(46)(REG_DAQ_DMB6_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(6).evtfifo_empty;
+    regs_read_arr(47)(REG_DAQ_DMB6_COUNTERS_EVN_MSB downto REG_DAQ_DMB6_COUNTERS_EVN_LSB) <= input_status_arr(6).eb_event_num;
+    regs_read_arr(48)(REG_DAQ_DMB6_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB6_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(6).data_cnt;
+    regs_read_arr(48)(REG_DAQ_DMB6_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB6_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(6).data_cnt;
+    regs_read_arr(49)(REG_DAQ_DMB6_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB6_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(6).infifo_near_full_cnt;
+    regs_read_arr(49)(REG_DAQ_DMB6_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB6_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(6).evtfifo_near_full_cnt;
+    regs_read_arr(50)(REG_DAQ_DMB6_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB6_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(6).infifo_wr_rate;
+    regs_read_arr(50)(REG_DAQ_DMB6_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB6_COUNTERS_EVT_RATE_LSB) <= input_status_arr(6).evtfifo_wr_rate;
+    regs_read_arr(51)(REG_DAQ_DMB7_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(7).err_infifo_full;
+    regs_read_arr(51)(REG_DAQ_DMB7_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(7).err_infifo_underflow;
+    regs_read_arr(51)(REG_DAQ_DMB7_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(7).err_evtfifo_full;
+    regs_read_arr(51)(REG_DAQ_DMB7_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(7).err_event_too_big;
+    regs_read_arr(51)(REG_DAQ_DMB7_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB7_STATUS_TTS_STATE_LSB) <= input_status_arr(7).tts_state;
+    regs_read_arr(51)(REG_DAQ_DMB7_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(7).infifo_underflow;
+    regs_read_arr(51)(REG_DAQ_DMB7_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(7).infifo_full;
+    regs_read_arr(51)(REG_DAQ_DMB7_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(7).infifo_near_full;
+    regs_read_arr(51)(REG_DAQ_DMB7_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(7).infifo_empty;
+    regs_read_arr(51)(REG_DAQ_DMB7_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(7).evtfifo_underflow;
+    regs_read_arr(51)(REG_DAQ_DMB7_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(7).evtfifo_full;
+    regs_read_arr(51)(REG_DAQ_DMB7_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(7).evtfifo_near_full;
+    regs_read_arr(51)(REG_DAQ_DMB7_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(7).evtfifo_empty;
+    regs_read_arr(52)(REG_DAQ_DMB7_COUNTERS_EVN_MSB downto REG_DAQ_DMB7_COUNTERS_EVN_LSB) <= input_status_arr(7).eb_event_num;
+    regs_read_arr(53)(REG_DAQ_DMB7_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB7_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(7).data_cnt;
+    regs_read_arr(53)(REG_DAQ_DMB7_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB7_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(7).data_cnt;
+    regs_read_arr(54)(REG_DAQ_DMB7_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB7_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(7).infifo_near_full_cnt;
+    regs_read_arr(54)(REG_DAQ_DMB7_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB7_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(7).evtfifo_near_full_cnt;
+    regs_read_arr(55)(REG_DAQ_DMB7_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB7_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(7).infifo_wr_rate;
+    regs_read_arr(55)(REG_DAQ_DMB7_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB7_COUNTERS_EVT_RATE_LSB) <= input_status_arr(7).evtfifo_wr_rate;
+    regs_read_arr(56)(REG_DAQ_DMB8_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(8).err_infifo_full;
+    regs_read_arr(56)(REG_DAQ_DMB8_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(8).err_infifo_underflow;
+    regs_read_arr(56)(REG_DAQ_DMB8_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(8).err_evtfifo_full;
+    regs_read_arr(56)(REG_DAQ_DMB8_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(8).err_event_too_big;
+    regs_read_arr(56)(REG_DAQ_DMB8_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB8_STATUS_TTS_STATE_LSB) <= input_status_arr(8).tts_state;
+    regs_read_arr(56)(REG_DAQ_DMB8_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(8).infifo_underflow;
+    regs_read_arr(56)(REG_DAQ_DMB8_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(8).infifo_full;
+    regs_read_arr(56)(REG_DAQ_DMB8_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(8).infifo_near_full;
+    regs_read_arr(56)(REG_DAQ_DMB8_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(8).infifo_empty;
+    regs_read_arr(56)(REG_DAQ_DMB8_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(8).evtfifo_underflow;
+    regs_read_arr(56)(REG_DAQ_DMB8_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(8).evtfifo_full;
+    regs_read_arr(56)(REG_DAQ_DMB8_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(8).evtfifo_near_full;
+    regs_read_arr(56)(REG_DAQ_DMB8_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(8).evtfifo_empty;
+    regs_read_arr(57)(REG_DAQ_DMB8_COUNTERS_EVN_MSB downto REG_DAQ_DMB8_COUNTERS_EVN_LSB) <= input_status_arr(8).eb_event_num;
+    regs_read_arr(58)(REG_DAQ_DMB8_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB8_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(8).data_cnt;
+    regs_read_arr(58)(REG_DAQ_DMB8_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB8_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(8).data_cnt;
+    regs_read_arr(59)(REG_DAQ_DMB8_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB8_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(8).infifo_near_full_cnt;
+    regs_read_arr(59)(REG_DAQ_DMB8_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB8_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(8).evtfifo_near_full_cnt;
+    regs_read_arr(60)(REG_DAQ_DMB8_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB8_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(8).infifo_wr_rate;
+    regs_read_arr(60)(REG_DAQ_DMB8_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB8_COUNTERS_EVT_RATE_LSB) <= input_status_arr(8).evtfifo_wr_rate;
+    regs_read_arr(61)(REG_DAQ_DMB9_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(9).err_infifo_full;
+    regs_read_arr(61)(REG_DAQ_DMB9_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(9).err_infifo_underflow;
+    regs_read_arr(61)(REG_DAQ_DMB9_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(9).err_evtfifo_full;
+    regs_read_arr(61)(REG_DAQ_DMB9_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(9).err_event_too_big;
+    regs_read_arr(61)(REG_DAQ_DMB9_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB9_STATUS_TTS_STATE_LSB) <= input_status_arr(9).tts_state;
+    regs_read_arr(61)(REG_DAQ_DMB9_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(9).infifo_underflow;
+    regs_read_arr(61)(REG_DAQ_DMB9_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(9).infifo_full;
+    regs_read_arr(61)(REG_DAQ_DMB9_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(9).infifo_near_full;
+    regs_read_arr(61)(REG_DAQ_DMB9_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(9).infifo_empty;
+    regs_read_arr(61)(REG_DAQ_DMB9_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(9).evtfifo_underflow;
+    regs_read_arr(61)(REG_DAQ_DMB9_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(9).evtfifo_full;
+    regs_read_arr(61)(REG_DAQ_DMB9_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(9).evtfifo_near_full;
+    regs_read_arr(61)(REG_DAQ_DMB9_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(9).evtfifo_empty;
+    regs_read_arr(62)(REG_DAQ_DMB9_COUNTERS_EVN_MSB downto REG_DAQ_DMB9_COUNTERS_EVN_LSB) <= input_status_arr(9).eb_event_num;
+    regs_read_arr(63)(REG_DAQ_DMB9_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB9_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(9).data_cnt;
+    regs_read_arr(63)(REG_DAQ_DMB9_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB9_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(9).data_cnt;
+    regs_read_arr(64)(REG_DAQ_DMB9_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB9_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(9).infifo_near_full_cnt;
+    regs_read_arr(64)(REG_DAQ_DMB9_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB9_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(9).evtfifo_near_full_cnt;
+    regs_read_arr(65)(REG_DAQ_DMB9_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB9_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(9).infifo_wr_rate;
+    regs_read_arr(65)(REG_DAQ_DMB9_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB9_COUNTERS_EVT_RATE_LSB) <= input_status_arr(9).evtfifo_wr_rate;
+    regs_read_arr(66)(REG_DAQ_DMB10_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(10).err_infifo_full;
+    regs_read_arr(66)(REG_DAQ_DMB10_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(10).err_infifo_underflow;
+    regs_read_arr(66)(REG_DAQ_DMB10_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(10).err_evtfifo_full;
+    regs_read_arr(66)(REG_DAQ_DMB10_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(10).err_event_too_big;
+    regs_read_arr(66)(REG_DAQ_DMB10_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB10_STATUS_TTS_STATE_LSB) <= input_status_arr(10).tts_state;
+    regs_read_arr(66)(REG_DAQ_DMB10_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(10).infifo_underflow;
+    regs_read_arr(66)(REG_DAQ_DMB10_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(10).infifo_full;
+    regs_read_arr(66)(REG_DAQ_DMB10_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(10).infifo_near_full;
+    regs_read_arr(66)(REG_DAQ_DMB10_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(10).infifo_empty;
+    regs_read_arr(66)(REG_DAQ_DMB10_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(10).evtfifo_underflow;
+    regs_read_arr(66)(REG_DAQ_DMB10_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(10).evtfifo_full;
+    regs_read_arr(66)(REG_DAQ_DMB10_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(10).evtfifo_near_full;
+    regs_read_arr(66)(REG_DAQ_DMB10_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(10).evtfifo_empty;
+    regs_read_arr(67)(REG_DAQ_DMB10_COUNTERS_EVN_MSB downto REG_DAQ_DMB10_COUNTERS_EVN_LSB) <= input_status_arr(10).eb_event_num;
+    regs_read_arr(68)(REG_DAQ_DMB10_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB10_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(10).data_cnt;
+    regs_read_arr(68)(REG_DAQ_DMB10_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB10_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(10).data_cnt;
+    regs_read_arr(69)(REG_DAQ_DMB10_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB10_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(10).infifo_near_full_cnt;
+    regs_read_arr(69)(REG_DAQ_DMB10_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB10_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(10).evtfifo_near_full_cnt;
+    regs_read_arr(70)(REG_DAQ_DMB10_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB10_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(10).infifo_wr_rate;
+    regs_read_arr(70)(REG_DAQ_DMB10_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB10_COUNTERS_EVT_RATE_LSB) <= input_status_arr(10).evtfifo_wr_rate;
+    regs_read_arr(71)(REG_DAQ_DMB11_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(11).err_infifo_full;
+    regs_read_arr(71)(REG_DAQ_DMB11_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(11).err_infifo_underflow;
+    regs_read_arr(71)(REG_DAQ_DMB11_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(11).err_evtfifo_full;
+    regs_read_arr(71)(REG_DAQ_DMB11_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(11).err_event_too_big;
+    regs_read_arr(71)(REG_DAQ_DMB11_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB11_STATUS_TTS_STATE_LSB) <= input_status_arr(11).tts_state;
+    regs_read_arr(71)(REG_DAQ_DMB11_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(11).infifo_underflow;
+    regs_read_arr(71)(REG_DAQ_DMB11_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(11).infifo_full;
+    regs_read_arr(71)(REG_DAQ_DMB11_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(11).infifo_near_full;
+    regs_read_arr(71)(REG_DAQ_DMB11_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(11).infifo_empty;
+    regs_read_arr(71)(REG_DAQ_DMB11_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(11).evtfifo_underflow;
+    regs_read_arr(71)(REG_DAQ_DMB11_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(11).evtfifo_full;
+    regs_read_arr(71)(REG_DAQ_DMB11_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(11).evtfifo_near_full;
+    regs_read_arr(71)(REG_DAQ_DMB11_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(11).evtfifo_empty;
+    regs_read_arr(72)(REG_DAQ_DMB11_COUNTERS_EVN_MSB downto REG_DAQ_DMB11_COUNTERS_EVN_LSB) <= input_status_arr(11).eb_event_num;
+    regs_read_arr(73)(REG_DAQ_DMB11_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB11_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(11).data_cnt;
+    regs_read_arr(73)(REG_DAQ_DMB11_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB11_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(11).data_cnt;
+    regs_read_arr(74)(REG_DAQ_DMB11_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB11_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(11).infifo_near_full_cnt;
+    regs_read_arr(74)(REG_DAQ_DMB11_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB11_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(11).evtfifo_near_full_cnt;
+    regs_read_arr(75)(REG_DAQ_DMB11_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB11_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(11).infifo_wr_rate;
+    regs_read_arr(75)(REG_DAQ_DMB11_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB11_COUNTERS_EVT_RATE_LSB) <= input_status_arr(11).evtfifo_wr_rate;
+    regs_read_arr(76)(REG_DAQ_DMB12_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(12).err_infifo_full;
+    regs_read_arr(76)(REG_DAQ_DMB12_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(12).err_infifo_underflow;
+    regs_read_arr(76)(REG_DAQ_DMB12_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(12).err_evtfifo_full;
+    regs_read_arr(76)(REG_DAQ_DMB12_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(12).err_event_too_big;
+    regs_read_arr(76)(REG_DAQ_DMB12_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB12_STATUS_TTS_STATE_LSB) <= input_status_arr(12).tts_state;
+    regs_read_arr(76)(REG_DAQ_DMB12_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(12).infifo_underflow;
+    regs_read_arr(76)(REG_DAQ_DMB12_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(12).infifo_full;
+    regs_read_arr(76)(REG_DAQ_DMB12_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(12).infifo_near_full;
+    regs_read_arr(76)(REG_DAQ_DMB12_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(12).infifo_empty;
+    regs_read_arr(76)(REG_DAQ_DMB12_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(12).evtfifo_underflow;
+    regs_read_arr(76)(REG_DAQ_DMB12_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(12).evtfifo_full;
+    regs_read_arr(76)(REG_DAQ_DMB12_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(12).evtfifo_near_full;
+    regs_read_arr(76)(REG_DAQ_DMB12_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(12).evtfifo_empty;
+    regs_read_arr(77)(REG_DAQ_DMB12_COUNTERS_EVN_MSB downto REG_DAQ_DMB12_COUNTERS_EVN_LSB) <= input_status_arr(12).eb_event_num;
+    regs_read_arr(78)(REG_DAQ_DMB12_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB12_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(12).data_cnt;
+    regs_read_arr(78)(REG_DAQ_DMB12_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB12_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(12).data_cnt;
+    regs_read_arr(79)(REG_DAQ_DMB12_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB12_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(12).infifo_near_full_cnt;
+    regs_read_arr(79)(REG_DAQ_DMB12_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB12_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(12).evtfifo_near_full_cnt;
+    regs_read_arr(80)(REG_DAQ_DMB12_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB12_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(12).infifo_wr_rate;
+    regs_read_arr(80)(REG_DAQ_DMB12_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB12_COUNTERS_EVT_RATE_LSB) <= input_status_arr(12).evtfifo_wr_rate;
+    regs_read_arr(81)(REG_DAQ_DMB13_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(13).err_infifo_full;
+    regs_read_arr(81)(REG_DAQ_DMB13_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(13).err_infifo_underflow;
+    regs_read_arr(81)(REG_DAQ_DMB13_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(13).err_evtfifo_full;
+    regs_read_arr(81)(REG_DAQ_DMB13_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(13).err_event_too_big;
+    regs_read_arr(81)(REG_DAQ_DMB13_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB13_STATUS_TTS_STATE_LSB) <= input_status_arr(13).tts_state;
+    regs_read_arr(81)(REG_DAQ_DMB13_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(13).infifo_underflow;
+    regs_read_arr(81)(REG_DAQ_DMB13_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(13).infifo_full;
+    regs_read_arr(81)(REG_DAQ_DMB13_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(13).infifo_near_full;
+    regs_read_arr(81)(REG_DAQ_DMB13_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(13).infifo_empty;
+    regs_read_arr(81)(REG_DAQ_DMB13_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(13).evtfifo_underflow;
+    regs_read_arr(81)(REG_DAQ_DMB13_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(13).evtfifo_full;
+    regs_read_arr(81)(REG_DAQ_DMB13_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(13).evtfifo_near_full;
+    regs_read_arr(81)(REG_DAQ_DMB13_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(13).evtfifo_empty;
+    regs_read_arr(82)(REG_DAQ_DMB13_COUNTERS_EVN_MSB downto REG_DAQ_DMB13_COUNTERS_EVN_LSB) <= input_status_arr(13).eb_event_num;
+    regs_read_arr(83)(REG_DAQ_DMB13_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB13_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(13).data_cnt;
+    regs_read_arr(83)(REG_DAQ_DMB13_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB13_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(13).data_cnt;
+    regs_read_arr(84)(REG_DAQ_DMB13_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB13_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(13).infifo_near_full_cnt;
+    regs_read_arr(84)(REG_DAQ_DMB13_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB13_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(13).evtfifo_near_full_cnt;
+    regs_read_arr(85)(REG_DAQ_DMB13_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB13_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(13).infifo_wr_rate;
+    regs_read_arr(85)(REG_DAQ_DMB13_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB13_COUNTERS_EVT_RATE_LSB) <= input_status_arr(13).evtfifo_wr_rate;
+    regs_read_arr(86)(REG_DAQ_DMB14_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(14).err_infifo_full;
+    regs_read_arr(86)(REG_DAQ_DMB14_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(14).err_infifo_underflow;
+    regs_read_arr(86)(REG_DAQ_DMB14_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(14).err_evtfifo_full;
+    regs_read_arr(86)(REG_DAQ_DMB14_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(14).err_event_too_big;
+    regs_read_arr(86)(REG_DAQ_DMB14_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB14_STATUS_TTS_STATE_LSB) <= input_status_arr(14).tts_state;
+    regs_read_arr(86)(REG_DAQ_DMB14_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(14).infifo_underflow;
+    regs_read_arr(86)(REG_DAQ_DMB14_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(14).infifo_full;
+    regs_read_arr(86)(REG_DAQ_DMB14_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(14).infifo_near_full;
+    regs_read_arr(86)(REG_DAQ_DMB14_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(14).infifo_empty;
+    regs_read_arr(86)(REG_DAQ_DMB14_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(14).evtfifo_underflow;
+    regs_read_arr(86)(REG_DAQ_DMB14_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(14).evtfifo_full;
+    regs_read_arr(86)(REG_DAQ_DMB14_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(14).evtfifo_near_full;
+    regs_read_arr(86)(REG_DAQ_DMB14_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(14).evtfifo_empty;
+    regs_read_arr(87)(REG_DAQ_DMB14_COUNTERS_EVN_MSB downto REG_DAQ_DMB14_COUNTERS_EVN_LSB) <= input_status_arr(14).eb_event_num;
+    regs_read_arr(88)(REG_DAQ_DMB14_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB14_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(14).data_cnt;
+    regs_read_arr(88)(REG_DAQ_DMB14_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB14_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(14).data_cnt;
+    regs_read_arr(89)(REG_DAQ_DMB14_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB14_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(14).infifo_near_full_cnt;
+    regs_read_arr(89)(REG_DAQ_DMB14_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB14_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(14).evtfifo_near_full_cnt;
+    regs_read_arr(90)(REG_DAQ_DMB14_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB14_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(14).infifo_wr_rate;
+    regs_read_arr(90)(REG_DAQ_DMB14_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB14_COUNTERS_EVT_RATE_LSB) <= input_status_arr(14).evtfifo_wr_rate;
+    regs_read_arr(91)(REG_DAQ_DMB15_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(15).err_infifo_full;
+    regs_read_arr(91)(REG_DAQ_DMB15_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(15).err_infifo_underflow;
+    regs_read_arr(91)(REG_DAQ_DMB15_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(15).err_evtfifo_full;
+    regs_read_arr(91)(REG_DAQ_DMB15_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(15).err_event_too_big;
+    regs_read_arr(91)(REG_DAQ_DMB15_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB15_STATUS_TTS_STATE_LSB) <= input_status_arr(15).tts_state;
+    regs_read_arr(91)(REG_DAQ_DMB15_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(15).infifo_underflow;
+    regs_read_arr(91)(REG_DAQ_DMB15_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(15).infifo_full;
+    regs_read_arr(91)(REG_DAQ_DMB15_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(15).infifo_near_full;
+    regs_read_arr(91)(REG_DAQ_DMB15_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(15).infifo_empty;
+    regs_read_arr(91)(REG_DAQ_DMB15_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(15).evtfifo_underflow;
+    regs_read_arr(91)(REG_DAQ_DMB15_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(15).evtfifo_full;
+    regs_read_arr(91)(REG_DAQ_DMB15_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(15).evtfifo_near_full;
+    regs_read_arr(91)(REG_DAQ_DMB15_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(15).evtfifo_empty;
+    regs_read_arr(92)(REG_DAQ_DMB15_COUNTERS_EVN_MSB downto REG_DAQ_DMB15_COUNTERS_EVN_LSB) <= input_status_arr(15).eb_event_num;
+    regs_read_arr(93)(REG_DAQ_DMB15_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB15_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(15).data_cnt;
+    regs_read_arr(93)(REG_DAQ_DMB15_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB15_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(15).data_cnt;
+    regs_read_arr(94)(REG_DAQ_DMB15_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB15_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(15).infifo_near_full_cnt;
+    regs_read_arr(94)(REG_DAQ_DMB15_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB15_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(15).evtfifo_near_full_cnt;
+    regs_read_arr(95)(REG_DAQ_DMB15_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB15_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(15).infifo_wr_rate;
+    regs_read_arr(95)(REG_DAQ_DMB15_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB15_COUNTERS_EVT_RATE_LSB) <= input_status_arr(15).evtfifo_wr_rate;
+    regs_read_arr(96)(REG_DAQ_DMB16_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(16).err_infifo_full;
+    regs_read_arr(96)(REG_DAQ_DMB16_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(16).err_infifo_underflow;
+    regs_read_arr(96)(REG_DAQ_DMB16_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(16).err_evtfifo_full;
+    regs_read_arr(96)(REG_DAQ_DMB16_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(16).err_event_too_big;
+    regs_read_arr(96)(REG_DAQ_DMB16_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB16_STATUS_TTS_STATE_LSB) <= input_status_arr(16).tts_state;
+    regs_read_arr(96)(REG_DAQ_DMB16_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(16).infifo_underflow;
+    regs_read_arr(96)(REG_DAQ_DMB16_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(16).infifo_full;
+    regs_read_arr(96)(REG_DAQ_DMB16_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(16).infifo_near_full;
+    regs_read_arr(96)(REG_DAQ_DMB16_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(16).infifo_empty;
+    regs_read_arr(96)(REG_DAQ_DMB16_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(16).evtfifo_underflow;
+    regs_read_arr(96)(REG_DAQ_DMB16_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(16).evtfifo_full;
+    regs_read_arr(96)(REG_DAQ_DMB16_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(16).evtfifo_near_full;
+    regs_read_arr(96)(REG_DAQ_DMB16_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(16).evtfifo_empty;
+    regs_read_arr(97)(REG_DAQ_DMB16_COUNTERS_EVN_MSB downto REG_DAQ_DMB16_COUNTERS_EVN_LSB) <= input_status_arr(16).eb_event_num;
+    regs_read_arr(98)(REG_DAQ_DMB16_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB16_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(16).data_cnt;
+    regs_read_arr(98)(REG_DAQ_DMB16_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB16_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(16).data_cnt;
+    regs_read_arr(99)(REG_DAQ_DMB16_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB16_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(16).infifo_near_full_cnt;
+    regs_read_arr(99)(REG_DAQ_DMB16_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB16_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(16).evtfifo_near_full_cnt;
+    regs_read_arr(100)(REG_DAQ_DMB16_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB16_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(16).infifo_wr_rate;
+    regs_read_arr(100)(REG_DAQ_DMB16_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB16_COUNTERS_EVT_RATE_LSB) <= input_status_arr(16).evtfifo_wr_rate;
+    regs_read_arr(101)(REG_DAQ_DMB17_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(17).err_infifo_full;
+    regs_read_arr(101)(REG_DAQ_DMB17_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(17).err_infifo_underflow;
+    regs_read_arr(101)(REG_DAQ_DMB17_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(17).err_evtfifo_full;
+    regs_read_arr(101)(REG_DAQ_DMB17_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(17).err_event_too_big;
+    regs_read_arr(101)(REG_DAQ_DMB17_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB17_STATUS_TTS_STATE_LSB) <= input_status_arr(17).tts_state;
+    regs_read_arr(101)(REG_DAQ_DMB17_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(17).infifo_underflow;
+    regs_read_arr(101)(REG_DAQ_DMB17_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(17).infifo_full;
+    regs_read_arr(101)(REG_DAQ_DMB17_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(17).infifo_near_full;
+    regs_read_arr(101)(REG_DAQ_DMB17_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(17).infifo_empty;
+    regs_read_arr(101)(REG_DAQ_DMB17_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(17).evtfifo_underflow;
+    regs_read_arr(101)(REG_DAQ_DMB17_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(17).evtfifo_full;
+    regs_read_arr(101)(REG_DAQ_DMB17_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(17).evtfifo_near_full;
+    regs_read_arr(101)(REG_DAQ_DMB17_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(17).evtfifo_empty;
+    regs_read_arr(102)(REG_DAQ_DMB17_COUNTERS_EVN_MSB downto REG_DAQ_DMB17_COUNTERS_EVN_LSB) <= input_status_arr(17).eb_event_num;
+    regs_read_arr(103)(REG_DAQ_DMB17_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB17_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(17).data_cnt;
+    regs_read_arr(103)(REG_DAQ_DMB17_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB17_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(17).data_cnt;
+    regs_read_arr(104)(REG_DAQ_DMB17_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB17_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(17).infifo_near_full_cnt;
+    regs_read_arr(104)(REG_DAQ_DMB17_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB17_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(17).evtfifo_near_full_cnt;
+    regs_read_arr(105)(REG_DAQ_DMB17_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB17_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(17).infifo_wr_rate;
+    regs_read_arr(105)(REG_DAQ_DMB17_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB17_COUNTERS_EVT_RATE_LSB) <= input_status_arr(17).evtfifo_wr_rate;
+    regs_read_arr(106)(REG_DAQ_DMB18_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(18).err_infifo_full;
+    regs_read_arr(106)(REG_DAQ_DMB18_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(18).err_infifo_underflow;
+    regs_read_arr(106)(REG_DAQ_DMB18_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(18).err_evtfifo_full;
+    regs_read_arr(106)(REG_DAQ_DMB18_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(18).err_event_too_big;
+    regs_read_arr(106)(REG_DAQ_DMB18_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB18_STATUS_TTS_STATE_LSB) <= input_status_arr(18).tts_state;
+    regs_read_arr(106)(REG_DAQ_DMB18_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(18).infifo_underflow;
+    regs_read_arr(106)(REG_DAQ_DMB18_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(18).infifo_full;
+    regs_read_arr(106)(REG_DAQ_DMB18_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(18).infifo_near_full;
+    regs_read_arr(106)(REG_DAQ_DMB18_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(18).infifo_empty;
+    regs_read_arr(106)(REG_DAQ_DMB18_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(18).evtfifo_underflow;
+    regs_read_arr(106)(REG_DAQ_DMB18_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(18).evtfifo_full;
+    regs_read_arr(106)(REG_DAQ_DMB18_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(18).evtfifo_near_full;
+    regs_read_arr(106)(REG_DAQ_DMB18_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(18).evtfifo_empty;
+    regs_read_arr(107)(REG_DAQ_DMB18_COUNTERS_EVN_MSB downto REG_DAQ_DMB18_COUNTERS_EVN_LSB) <= input_status_arr(18).eb_event_num;
+    regs_read_arr(108)(REG_DAQ_DMB18_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB18_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(18).data_cnt;
+    regs_read_arr(108)(REG_DAQ_DMB18_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB18_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(18).data_cnt;
+    regs_read_arr(109)(REG_DAQ_DMB18_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB18_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(18).infifo_near_full_cnt;
+    regs_read_arr(109)(REG_DAQ_DMB18_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB18_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(18).evtfifo_near_full_cnt;
+    regs_read_arr(110)(REG_DAQ_DMB18_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB18_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(18).infifo_wr_rate;
+    regs_read_arr(110)(REG_DAQ_DMB18_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB18_COUNTERS_EVT_RATE_LSB) <= input_status_arr(18).evtfifo_wr_rate;
+    regs_read_arr(111)(REG_DAQ_DMB19_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(19).err_infifo_full;
+    regs_read_arr(111)(REG_DAQ_DMB19_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(19).err_infifo_underflow;
+    regs_read_arr(111)(REG_DAQ_DMB19_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(19).err_evtfifo_full;
+    regs_read_arr(111)(REG_DAQ_DMB19_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(19).err_event_too_big;
+    regs_read_arr(111)(REG_DAQ_DMB19_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB19_STATUS_TTS_STATE_LSB) <= input_status_arr(19).tts_state;
+    regs_read_arr(111)(REG_DAQ_DMB19_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(19).infifo_underflow;
+    regs_read_arr(111)(REG_DAQ_DMB19_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(19).infifo_full;
+    regs_read_arr(111)(REG_DAQ_DMB19_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(19).infifo_near_full;
+    regs_read_arr(111)(REG_DAQ_DMB19_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(19).infifo_empty;
+    regs_read_arr(111)(REG_DAQ_DMB19_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(19).evtfifo_underflow;
+    regs_read_arr(111)(REG_DAQ_DMB19_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(19).evtfifo_full;
+    regs_read_arr(111)(REG_DAQ_DMB19_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(19).evtfifo_near_full;
+    regs_read_arr(111)(REG_DAQ_DMB19_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(19).evtfifo_empty;
+    regs_read_arr(112)(REG_DAQ_DMB19_COUNTERS_EVN_MSB downto REG_DAQ_DMB19_COUNTERS_EVN_LSB) <= input_status_arr(19).eb_event_num;
+    regs_read_arr(113)(REG_DAQ_DMB19_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB19_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(19).data_cnt;
+    regs_read_arr(113)(REG_DAQ_DMB19_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB19_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(19).data_cnt;
+    regs_read_arr(114)(REG_DAQ_DMB19_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB19_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(19).infifo_near_full_cnt;
+    regs_read_arr(114)(REG_DAQ_DMB19_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB19_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(19).evtfifo_near_full_cnt;
+    regs_read_arr(115)(REG_DAQ_DMB19_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB19_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(19).infifo_wr_rate;
+    regs_read_arr(115)(REG_DAQ_DMB19_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB19_COUNTERS_EVT_RATE_LSB) <= input_status_arr(19).evtfifo_wr_rate;
+    regs_read_arr(116)(REG_DAQ_DMB20_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(20).err_infifo_full;
+    regs_read_arr(116)(REG_DAQ_DMB20_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(20).err_infifo_underflow;
+    regs_read_arr(116)(REG_DAQ_DMB20_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(20).err_evtfifo_full;
+    regs_read_arr(116)(REG_DAQ_DMB20_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(20).err_event_too_big;
+    regs_read_arr(116)(REG_DAQ_DMB20_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB20_STATUS_TTS_STATE_LSB) <= input_status_arr(20).tts_state;
+    regs_read_arr(116)(REG_DAQ_DMB20_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(20).infifo_underflow;
+    regs_read_arr(116)(REG_DAQ_DMB20_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(20).infifo_full;
+    regs_read_arr(116)(REG_DAQ_DMB20_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(20).infifo_near_full;
+    regs_read_arr(116)(REG_DAQ_DMB20_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(20).infifo_empty;
+    regs_read_arr(116)(REG_DAQ_DMB20_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(20).evtfifo_underflow;
+    regs_read_arr(116)(REG_DAQ_DMB20_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(20).evtfifo_full;
+    regs_read_arr(116)(REG_DAQ_DMB20_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(20).evtfifo_near_full;
+    regs_read_arr(116)(REG_DAQ_DMB20_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(20).evtfifo_empty;
+    regs_read_arr(117)(REG_DAQ_DMB20_COUNTERS_EVN_MSB downto REG_DAQ_DMB20_COUNTERS_EVN_LSB) <= input_status_arr(20).eb_event_num;
+    regs_read_arr(118)(REG_DAQ_DMB20_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB20_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(20).data_cnt;
+    regs_read_arr(118)(REG_DAQ_DMB20_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB20_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(20).data_cnt;
+    regs_read_arr(119)(REG_DAQ_DMB20_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB20_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(20).infifo_near_full_cnt;
+    regs_read_arr(119)(REG_DAQ_DMB20_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB20_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(20).evtfifo_near_full_cnt;
+    regs_read_arr(120)(REG_DAQ_DMB20_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB20_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(20).infifo_wr_rate;
+    regs_read_arr(120)(REG_DAQ_DMB20_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB20_COUNTERS_EVT_RATE_LSB) <= input_status_arr(20).evtfifo_wr_rate;
+    regs_read_arr(121)(REG_DAQ_DMB21_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(21).err_infifo_full;
+    regs_read_arr(121)(REG_DAQ_DMB21_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(21).err_infifo_underflow;
+    regs_read_arr(121)(REG_DAQ_DMB21_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(21).err_evtfifo_full;
+    regs_read_arr(121)(REG_DAQ_DMB21_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(21).err_event_too_big;
+    regs_read_arr(121)(REG_DAQ_DMB21_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB21_STATUS_TTS_STATE_LSB) <= input_status_arr(21).tts_state;
+    regs_read_arr(121)(REG_DAQ_DMB21_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(21).infifo_underflow;
+    regs_read_arr(121)(REG_DAQ_DMB21_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(21).infifo_full;
+    regs_read_arr(121)(REG_DAQ_DMB21_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(21).infifo_near_full;
+    regs_read_arr(121)(REG_DAQ_DMB21_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(21).infifo_empty;
+    regs_read_arr(121)(REG_DAQ_DMB21_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(21).evtfifo_underflow;
+    regs_read_arr(121)(REG_DAQ_DMB21_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(21).evtfifo_full;
+    regs_read_arr(121)(REG_DAQ_DMB21_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(21).evtfifo_near_full;
+    regs_read_arr(121)(REG_DAQ_DMB21_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(21).evtfifo_empty;
+    regs_read_arr(122)(REG_DAQ_DMB21_COUNTERS_EVN_MSB downto REG_DAQ_DMB21_COUNTERS_EVN_LSB) <= input_status_arr(21).eb_event_num;
+    regs_read_arr(123)(REG_DAQ_DMB21_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB21_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(21).data_cnt;
+    regs_read_arr(123)(REG_DAQ_DMB21_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB21_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(21).data_cnt;
+    regs_read_arr(124)(REG_DAQ_DMB21_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB21_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(21).infifo_near_full_cnt;
+    regs_read_arr(124)(REG_DAQ_DMB21_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB21_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(21).evtfifo_near_full_cnt;
+    regs_read_arr(125)(REG_DAQ_DMB21_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB21_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(21).infifo_wr_rate;
+    regs_read_arr(125)(REG_DAQ_DMB21_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB21_COUNTERS_EVT_RATE_LSB) <= input_status_arr(21).evtfifo_wr_rate;
+    regs_read_arr(126)(REG_DAQ_DMB22_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(22).err_infifo_full;
+    regs_read_arr(126)(REG_DAQ_DMB22_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(22).err_infifo_underflow;
+    regs_read_arr(126)(REG_DAQ_DMB22_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(22).err_evtfifo_full;
+    regs_read_arr(126)(REG_DAQ_DMB22_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(22).err_event_too_big;
+    regs_read_arr(126)(REG_DAQ_DMB22_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB22_STATUS_TTS_STATE_LSB) <= input_status_arr(22).tts_state;
+    regs_read_arr(126)(REG_DAQ_DMB22_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(22).infifo_underflow;
+    regs_read_arr(126)(REG_DAQ_DMB22_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(22).infifo_full;
+    regs_read_arr(126)(REG_DAQ_DMB22_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(22).infifo_near_full;
+    regs_read_arr(126)(REG_DAQ_DMB22_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(22).infifo_empty;
+    regs_read_arr(126)(REG_DAQ_DMB22_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(22).evtfifo_underflow;
+    regs_read_arr(126)(REG_DAQ_DMB22_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(22).evtfifo_full;
+    regs_read_arr(126)(REG_DAQ_DMB22_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(22).evtfifo_near_full;
+    regs_read_arr(126)(REG_DAQ_DMB22_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(22).evtfifo_empty;
+    regs_read_arr(127)(REG_DAQ_DMB22_COUNTERS_EVN_MSB downto REG_DAQ_DMB22_COUNTERS_EVN_LSB) <= input_status_arr(22).eb_event_num;
+    regs_read_arr(128)(REG_DAQ_DMB22_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB22_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(22).data_cnt;
+    regs_read_arr(128)(REG_DAQ_DMB22_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB22_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(22).data_cnt;
+    regs_read_arr(129)(REG_DAQ_DMB22_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB22_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(22).infifo_near_full_cnt;
+    regs_read_arr(129)(REG_DAQ_DMB22_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB22_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(22).evtfifo_near_full_cnt;
+    regs_read_arr(130)(REG_DAQ_DMB22_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB22_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(22).infifo_wr_rate;
+    regs_read_arr(130)(REG_DAQ_DMB22_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB22_COUNTERS_EVT_RATE_LSB) <= input_status_arr(22).evtfifo_wr_rate;
+    regs_read_arr(131)(REG_DAQ_DMB23_STATUS_INPUT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(23).err_infifo_full;
+    regs_read_arr(131)(REG_DAQ_DMB23_STATUS_INPUT_FIFO_HAD_UFLOW_BIT) <= input_status_arr(23).err_infifo_underflow;
+    regs_read_arr(131)(REG_DAQ_DMB23_STATUS_EVENT_FIFO_HAD_OFLOW_BIT) <= input_status_arr(23).err_evtfifo_full;
+    regs_read_arr(131)(REG_DAQ_DMB23_STATUS_EVT_SIZE_ERR_BIT) <= input_status_arr(23).err_event_too_big;
+    regs_read_arr(131)(REG_DAQ_DMB23_STATUS_TTS_STATE_MSB downto REG_DAQ_DMB23_STATUS_TTS_STATE_LSB) <= input_status_arr(23).tts_state;
+    regs_read_arr(131)(REG_DAQ_DMB23_STATUS_INPUT_FIFO_IS_UFLOW_BIT) <= input_status_arr(23).infifo_underflow;
+    regs_read_arr(131)(REG_DAQ_DMB23_STATUS_INPUT_FIFO_IS_FULL_BIT) <= input_status_arr(23).infifo_full;
+    regs_read_arr(131)(REG_DAQ_DMB23_STATUS_INPUT_FIFO_IS_AFULL_BIT) <= input_status_arr(23).infifo_near_full;
+    regs_read_arr(131)(REG_DAQ_DMB23_STATUS_INPUT_FIFO_IS_EMPTY_BIT) <= input_status_arr(23).infifo_empty;
+    regs_read_arr(131)(REG_DAQ_DMB23_STATUS_EVENT_FIFO_IS_UFLOW_BIT) <= input_status_arr(23).evtfifo_underflow;
+    regs_read_arr(131)(REG_DAQ_DMB23_STATUS_EVENT_FIFO_IS_FULL_BIT) <= input_status_arr(23).evtfifo_full;
+    regs_read_arr(131)(REG_DAQ_DMB23_STATUS_EVENT_FIFO_IS_AFULL_BIT) <= input_status_arr(23).evtfifo_near_full;
+    regs_read_arr(131)(REG_DAQ_DMB23_STATUS_EVENT_FIFO_IS_EMPTY_BIT) <= input_status_arr(23).evtfifo_empty;
+    regs_read_arr(132)(REG_DAQ_DMB23_COUNTERS_EVN_MSB downto REG_DAQ_DMB23_COUNTERS_EVN_LSB) <= input_status_arr(23).eb_event_num;
+    regs_read_arr(133)(REG_DAQ_DMB23_COUNTERS_INPUT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB23_COUNTERS_INPUT_FIFO_DATA_CNT_LSB) <= chamber_infifos(23).data_cnt;
+    regs_read_arr(133)(REG_DAQ_DMB23_COUNTERS_EVT_FIFO_DATA_CNT_MSB downto REG_DAQ_DMB23_COUNTERS_EVT_FIFO_DATA_CNT_LSB) <= chamber_evtfifos(23).data_cnt;
+    regs_read_arr(134)(REG_DAQ_DMB23_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB23_COUNTERS_INPUT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(23).infifo_near_full_cnt;
+    regs_read_arr(134)(REG_DAQ_DMB23_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_MSB downto REG_DAQ_DMB23_COUNTERS_EVT_FIFO_NEAR_FULL_CNT_LSB) <= input_status_arr(23).evtfifo_near_full_cnt;
+    regs_read_arr(135)(REG_DAQ_DMB23_COUNTERS_DATA_WORD_RATE_MSB downto REG_DAQ_DMB23_COUNTERS_DATA_WORD_RATE_LSB) <= input_status_arr(23).infifo_wr_rate;
+    regs_read_arr(135)(REG_DAQ_DMB23_COUNTERS_EVT_RATE_MSB downto REG_DAQ_DMB23_COUNTERS_EVT_RATE_LSB) <= input_status_arr(23).evtfifo_wr_rate;
 
     -- Connect write signals
     daq_enable <= regs_write_arr(0)(REG_DAQ_CONTROL_DAQ_ENABLE_BIT);
@@ -1165,6 +1779,8 @@ begin
     tts_override <= regs_write_arr(0)(REG_DAQ_CONTROL_TTS_OVERRIDE_MSB downto REG_DAQ_CONTROL_TTS_OVERRIDE_LSB);
     input_mask <= regs_write_arr(0)(REG_DAQ_CONTROL_INPUT_ENABLE_MASK_MSB downto REG_DAQ_CONTROL_INPUT_ENABLE_MASK_LSB);
     dav_timeout <= regs_write_arr(6)(REG_DAQ_CONTROL_DAV_TIMEOUT_MSB downto REG_DAQ_CONTROL_DAV_TIMEOUT_LSB);
+    freeze_on_error <= regs_write_arr(6)(REG_DAQ_CONTROL_FREEZE_ON_ERROR_BIT);
+    reset_till_resync <= regs_write_arr(6)(REG_DAQ_CONTROL_RESET_TILL_RESYNC_BIT);
     run_params <= regs_write_arr(13)(REG_DAQ_EXT_CONTROL_RUN_PARAMS_MSB downto REG_DAQ_EXT_CONTROL_RUN_PARAMS_LSB);
     run_type <= regs_write_arr(13)(REG_DAQ_EXT_CONTROL_RUN_TYPE_MSB downto REG_DAQ_EXT_CONTROL_RUN_TYPE_LSB);
     block_last_evt_fifo <= regs_write_arr(14)(REG_DAQ_LAST_EVENT_FIFO_DISABLE_BIT);
@@ -1187,6 +1803,8 @@ begin
     regs_defaults(0)(REG_DAQ_CONTROL_TTS_OVERRIDE_MSB downto REG_DAQ_CONTROL_TTS_OVERRIDE_LSB) <= REG_DAQ_CONTROL_TTS_OVERRIDE_DEFAULT;
     regs_defaults(0)(REG_DAQ_CONTROL_INPUT_ENABLE_MASK_MSB downto REG_DAQ_CONTROL_INPUT_ENABLE_MASK_LSB) <= REG_DAQ_CONTROL_INPUT_ENABLE_MASK_DEFAULT;
     regs_defaults(6)(REG_DAQ_CONTROL_DAV_TIMEOUT_MSB downto REG_DAQ_CONTROL_DAV_TIMEOUT_LSB) <= REG_DAQ_CONTROL_DAV_TIMEOUT_DEFAULT;
+    regs_defaults(6)(REG_DAQ_CONTROL_FREEZE_ON_ERROR_BIT) <= REG_DAQ_CONTROL_FREEZE_ON_ERROR_DEFAULT;
+    regs_defaults(6)(REG_DAQ_CONTROL_RESET_TILL_RESYNC_BIT) <= REG_DAQ_CONTROL_RESET_TILL_RESYNC_DEFAULT;
     regs_defaults(13)(REG_DAQ_EXT_CONTROL_RUN_PARAMS_MSB downto REG_DAQ_EXT_CONTROL_RUN_PARAMS_LSB) <= REG_DAQ_EXT_CONTROL_RUN_PARAMS_DEFAULT;
     regs_defaults(13)(REG_DAQ_EXT_CONTROL_RUN_TYPE_MSB downto REG_DAQ_EXT_CONTROL_RUN_TYPE_LSB) <= REG_DAQ_EXT_CONTROL_RUN_TYPE_DEFAULT;
     regs_defaults(14)(REG_DAQ_LAST_EVENT_FIFO_DISABLE_BIT) <= REG_DAQ_LAST_EVENT_FIFO_DISABLE_DEFAULT;

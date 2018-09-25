@@ -46,14 +46,51 @@ package csc_board_config_package is
     -- It's very important that the link number of each DMB is corresponding to the correct type of GTH configuration (which is defined in system_pkg.vhd)
     -- See the bottom of the file for fiber to GTH mapping (CFG_RX_FIBER_TO_GTH_MAP and CFG_TX_FIBER_TO_GTH_MAP)
 
-    constant CFG_NUM_DMBS           : integer := 2;    -- total number of DMBs to instanciate
+-- ------------------ two input version for 904 --------------------
+--    constant CFG_NUM_DMBS           : integer := 2;    -- total number of DMBs to instanciate
+--
+--    constant CFG_DMB_CONFIG_ARR : t_dmb_config_arr(0 to CFG_NUM_DMBS - 1) := (
+--        (num_fibers => 1, rx_fibers => (10, 0, 0)),      -- 904 ME2/1 "copper" DMB
+--        (num_fibers => 1, rx_fibers => (11, 0, 0))       -- 904 ME1/1 ODMB
+--    );
+--
+--    constant CFG_USE_SPY_LINK : boolean := true;
+--    constant CFG_SPY_LINK     : integer := 35;
+---------------------------------------------------------------------
+
+    constant CFG_NUM_DMBS           : integer := 24;    -- total number of DMBs to instanciate
 
     constant CFG_DMB_CONFIG_ARR : t_dmb_config_arr(0 to CFG_NUM_DMBS - 1) := (
-        (num_fibers => 1, rx_fibers => (10, 0, 0)),      -- 904 ME2/1 "copper" DMB
-        (num_fibers => 1, rx_fibers => (11, 0, 0))       -- 904 ME1/1 ODMB
+        (num_fibers => 1, rx_fibers => (0, 0, 0)),
+        (num_fibers => 1, rx_fibers => (1, 0, 0)),
+        (num_fibers => 1, rx_fibers => (2, 0, 0)),
+        (num_fibers => 1, rx_fibers => (3, 0, 0)),
+        (num_fibers => 1, rx_fibers => (4, 0, 0)),
+        (num_fibers => 1, rx_fibers => (5, 0, 0)),
+        (num_fibers => 1, rx_fibers => (6, 0, 0)),
+        (num_fibers => 1, rx_fibers => (7, 0, 0)),
+        (num_fibers => 1, rx_fibers => (8, 0, 0)),
+        (num_fibers => 1, rx_fibers => (9, 0, 0)),
+        (num_fibers => 1, rx_fibers => (10, 0, 0)),
+        (num_fibers => 1, rx_fibers => (11, 0, 0)),
+
+        (num_fibers => 1, rx_fibers => (12, 0, 0)),
+        (num_fibers => 1, rx_fibers => (13, 0, 0)),
+        (num_fibers => 1, rx_fibers => (14, 0, 0)),
+        (num_fibers => 1, rx_fibers => (15, 0, 0)),
+        (num_fibers => 1, rx_fibers => (16, 0, 0)),
+        (num_fibers => 1, rx_fibers => (17, 0, 0)),
+        (num_fibers => 1, rx_fibers => (18, 0, 0)),
+        (num_fibers => 1, rx_fibers => (19, 0, 0)),
+        (num_fibers => 1, rx_fibers => (20, 0, 0)),
+        (num_fibers => 1, rx_fibers => (21, 0, 0)),
+        (num_fibers => 1, rx_fibers => (22, 0, 0)),
+        (num_fibers => 1, rx_fibers => (23, 0, 0))
     );
 
+    constant CFG_USE_SPY_LINK : boolean := false;
     constant CFG_SPY_LINK : integer := 35;
+
     
     --***********************************************************************************************************
     --***********************************************************************************************************

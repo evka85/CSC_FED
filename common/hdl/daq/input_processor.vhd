@@ -115,7 +115,7 @@ architecture input_processor_arch of input_processor is
     -- TODO: should be moved to a package
 
     -- given a 64bit word it returns the four top bits of each 16bit word concatenated together
-    function get_ddu_code_x4(word64 : in std_logic_vector(63 downto 0)) return std_logic_vector(15 downto 0) is
+    function get_ddu_code_x4(word64 : in std_logic_vector(63 downto 0)) return std_logic_vector is
     begin
         return word64(63 downto 60) & word64(47 downto 44) & word64(31 downto 28) & word64(15 downto 12);
     end function;
@@ -321,7 +321,7 @@ begin
     begin
         if (rising_edge(input_clk_i)) then
         
-            if (reset_i = '1') then
+            if ((reset_i = '1') or (input_enable_i = '0')) then
                 lp_word_pos <= 0;
                 lp_word64 <= (others => '0');
                 lp_word64_valid <= '0';

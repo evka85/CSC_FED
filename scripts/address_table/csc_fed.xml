@@ -287,6 +287,12 @@
                                payload will be present). Units = clock cycles @ 25MHz
                                (current DAQLink clk frequency)"
                   fw_signal="dav_timeout" fw_default="0x3d090"/>
+            <node id="FREEZE_ON_ERROR"        address="0x6"  mask="0x01000000" permission="rw"
+                  description="This is a debug feature which when turned on will start sending only IDLE words to all input processors and block L1As as soon as TTS error is detected. This gets reset with a DAQ module reset or a TTC resync."
+                  fw_signal="freeze_on_error" fw_default="0x0"/>
+            <node id="RESET_TILL_RESYNC"        address="0x6"  mask="0x02000000" permission="rw"
+                  description="If this is true, then after the user removes the reset, this module will still stay in reset till the resync is received. This is handy for starting to take data in the middle of an active run."
+                  fw_signal="reset_till_resync" fw_default="0x0"/>
         </node>
         
         <node id="STATUS"  address="0x1" description="DAQ global status registers">
