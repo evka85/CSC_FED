@@ -48,11 +48,13 @@ def main():
     writeReg(getNode('CSC_FED.DAQ.CONTROL.DAQ_ENABLE'), 0x0)
     writeReg(getNode('CSC_FED.DAQ.CONTROL.INPUT_ENABLE_MASK'), inputMask)
     writeReg(getNode('CSC_FED.DAQ.CONTROL.IGNORE_AMC13'), ignoreAmc13)
+    writeReg(getNode('CSC_FED.DAQ.CONTROL.FREEZE_ON_ERROR'), 0x1)
+    writeReg(getNode('CSC_FED.DAQ.CONTROL.RESET_TILL_RESYNC'), 0x1)
     writeReg(getNode('CSC_FED.DAQ.CONTROL.RESET'), 0x1)
-    writeReg(getNode('CSC_FED.DAQ.CONTROL.RESET'), 0x0)
     writeReg(getNode('CSC_FED.DAQ.LAST_EVENT_FIFO.DISABLE'), 0x0)
     writeReg(getNode('CSC_FED.DAQ.CONTROL.DAQ_ENABLE'), 0x1)
     writeReg(getNode('CSC_FED.TTC.CTRL.L1A_ENABLE'), 0x1)
+    writeReg(getNode('CSC_FED.DAQ.CONTROL.RESET'), 0x0)
 
     signal.signal(signal.SIGINT, exitHandler) #register SIGINT to gracefully exit
     RAW_FILE = open(filename, 'w')
@@ -95,6 +97,7 @@ def main():
             if ttsState == 0xc:
                 printRed("TTS state = ERROR! Exiting...")
                 RAW_FILE.close()
+                dumpDaqRegs()
                 sys.exit(0)
 
 def exitHandler(signal, frame):
@@ -109,6 +112,16 @@ def initDaqRegAddrs():
     global ADDR_DAQ_DATA
     ADDR_DAQ_EMPTY = getNode('CSC_FED.DAQ.LAST_EVENT_FIFO.EMPTY').real_address
     ADDR_DAQ_EMPTY = getNode('CSC_FED.DAQ.LAST_EVENT_FIFO.DATA').real_address
+
+
+def dumpDaqRegs():
+    printRed("=================================================================")
+    printRed("===================== Dumping DAQ Registers =====================")
+    printRed("=================================================================")
+
+    nodes = getNodesContaining('CSC_FED.DAQ')
+    for node in nodes:
+        print "%s\t\t\t%s" % (node.name, readReg(node))
 
 
 #---------------------------- utils ------------------------------------------------
