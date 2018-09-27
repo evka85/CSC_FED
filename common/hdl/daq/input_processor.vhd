@@ -137,6 +137,7 @@ architecture input_processor_arch of input_processor is
     signal err_evtfifo_near_full    : std_logic := '0';
     signal err_evtfifo_underflow    : std_logic := '0'; -- Tried to read too many events from the event fifo (indicates a problem in the AMC event builder)
     signal err_event_too_big        : std_logic := '0'; -- didn't find DMB trailer in more than 4095 words! (event fifo cannot store a size pointer this big -- crash)
+    signal err_64bit_misaligned     : std_logic := '0'; -- this flag is latched if a 64bit misaligned packet has been detected
 
     -- Input FIFO
     signal infifo_din               : std_logic_vector(63 downto 0) := (others => '0');
@@ -155,19 +156,17 @@ architecture input_processor_arch of input_processor is
     signal evtfifo_underflow        : std_logic := '0';
 
     -- Link processor
-    signal lp_word64                : std_logic_vector(63 downto 0) := (others => '0');
-    signal lp_word64_valid          : std_logic;
     signal lp_word_pos              : integer range 0 to 3 := 0; -- position in 64bit word
-
-    -- Event processor
-    signal ep_event_in_progress     : std_logic := '0';
-    signal ep_end_event             : std_logic := '0';
-    
+    signal lp_event_in_progress     : std_logic := '0';
+    signal lp_end_event             : std_logic := '0';
+    signal lp_64bit_misaligned      : std_logic := '0';
+        
     -- Event builder
     signal eb_event_size            : unsigned(11 downto 0) := (others => '0');
     signal eb_event_num             : unsigned(23 downto 0) := x"000001";
     
     signal eb_event_too_big         : std_logic := '0';
+    signal eb_64bit_misaligned      : std_logic := '0';
 
 begin
 
@@ -175,8 +174,8 @@ begin
     -- TTS
     --================================--
     
-    tts_critical_error <= err_event_too_big or 
-                          err_evtfifo_full or 
+    -- err_event_too_big was removed from the critical error list, since this is effectively just an end-of-event timeout
+    tts_critical_error <= err_evtfifo_full or 
                           err_evtfifo_underflow or 
                           err_infifo_full or
                           err_infifo_underflow;
@@ -313,40 +312,6 @@ begin
         en_i    => evtfifo_wr_en,
         rate_o  => status_o.evtfifo_wr_rate
     );
-
-    --==================================================--
-    -- Link processor: glue input data into 64bit words
-    --==================================================--
-    process(input_clk_i)
-    begin
-        if (rising_edge(input_clk_i)) then
-        
-            if ((reset_i = '1') or (input_enable_i = '0')) then
-                lp_word_pos <= 0;
-                lp_word64 <= (others => '0');
-                lp_word64_valid <= '0';
-            else
-
-                -- ignore the idle words (they can also be sneaked in by our MGT RX at any time to correct for clock drift)
-                if ((input_data_link_i.rxcharisk(1 downto 0) /= DMB_IDLE_WORD_KCHAR) or (input_data_link_i.rxdata(15 downto 0) /= DMB_IDLE_WORD_DATA)) then
-                
-                    lp_word64(((lp_word_pos + 1) * 16) - 1 downto lp_word_pos * 16) <= input_data_link_i.rxdata(15 downto 0);
-                    
-                    -- is it the last piece of 64bit word?
-                    if (lp_word_pos = 3) then
-                        lp_word_pos <= 0;                        
-                        lp_word64_valid <= '1';
-                    else
-                        lp_word64_valid <= '0';
-                        lp_word_pos <= lp_word_pos + 1;
-                    end if;
-                else
-                    lp_word64_valid <= '0';
-                end if;
-                
-            end if;
-        end if;
-    end process;
     
     -- monitor input fifo
     process(input_clk_i)
@@ -363,60 +328,114 @@ begin
     end process;
 
     --================================--
-    -- Input processor
+    -- Link input processor (separates events)
     --================================--
     
     process(input_clk_i)
+        variable lp_word64 : std_logic_vector(63 downto 0) := (others => '0');
     begin
         if (rising_edge(input_clk_i)) then
 
-            if (reset_i = '1') then
-                ep_event_in_progress    <= '0';
-                infifo_wr_en            <= '0';
-                infifo_din              <= (others => '0');
+            if ((reset_i = '1') or (input_enable_i = '0')) then
+                lp_word_pos <= 0;
+                lp_word64 := (others => '0');
+                lp_event_in_progress <= '0';
+                lp_end_event <= '0';
+                infifo_wr_en <= '0';
+                infifo_din <= (others => '0');
+                lp_64bit_misaligned <= '0';
             else
-            
-                if (ep_end_event = '1') then
-                    ep_event_in_progress <= '0';
-                    ep_end_event <= '0';
-                end if;
 
-                infifo_din <= lp_word64;
-                infifo_wr_en <= '0';                
+                -- ignore the idle words (they can also be sneaked in by our MGT RX at any time to correct for clock drift)
+                if ((input_data_link_i.rxcharisk(1 downto 0) /= DMB_IDLE_WORD_KCHAR) or (input_data_link_i.rxdata(15 downto 0) /= DMB_IDLE_WORD_DATA)) then
                 
-                if(lp_word64_valid = '1') then
-                
+                    lp_word64 := input_data_link_i.rxdata(15 downto 0) & lp_word64(63 downto 16);
+                                        
                     -- wait for start of event
-                    if (ep_event_in_progress = '0') then
+                    if (lp_event_in_progress = '0') then
     
+                        lp_64bit_misaligned <= '0';
+                        
                         if (get_ddu_code_x4(lp_word64) = DDU_CODE_LONE_WORD_X4) then
-                            ep_event_in_progress <= '1';
-                            ep_end_event <= '1';
+                            lp_event_in_progress <= '1';
+                            lp_end_event <= '1';
+                            lp_word_pos <= 0;
                             infifo_wr_en <= '1';
-                        end if;
-                    
-                        if (get_ddu_code_x4(lp_word64) = DDU_CODE_DMB_HEAD1_X4) then
-                            ep_event_in_progress <= '1';
+                            infifo_din <= lp_word64;
+                        elsif (get_ddu_code_x4(lp_word64) = DDU_CODE_DMB_HEAD1_X4) then
+                            lp_event_in_progress <= '1';
+                            lp_end_event <= '0';
+                            lp_word_pos <= 0;
                             infifo_wr_en <= '1';
+                            infifo_din <= lp_word64;
+                        else
+                            lp_event_in_progress <= '0';
+                            lp_end_event <= '0';
+                            lp_word_pos <= 0;
+                            infifo_wr_en <= '0';
+                            infifo_din <= lp_word64;
                         end if;
                     
                     -- event is in progress
                     else
                         
-                        -- terminate the event if the event gets too big or if we see the DMB trailer #2
-                        if (eb_event_too_big = '1') then
-                            ep_event_in_progress <= '0';
+                        -- terminate the event if end of event is signaled from the previous cycle
+                        if (lp_end_event = '1') then
+                            lp_event_in_progress <= '0';
+                            lp_end_event <= '0';
+                            lp_word_pos <= 0;
+                            infifo_wr_en <= '0';
+                            infifo_din <= lp_word64;
+                        -- terminate the event if we see the DMB trailer #2 (note that this might not be 64bit aligned, so take care to fix it and pad with zeroes at the end)
                         elsif (get_ddu_code_x4(lp_word64) = DDU_CODE_DMB_TRAIL2_X4) then
-                            ep_event_in_progress <= '1';
-                            ep_end_event <= '1';
+                            lp_event_in_progress <= '1';
+                            lp_end_event <= '1';
+                            lp_word_pos <= 0;
                             infifo_wr_en <= '1';
+                            infifo_din <= std_logic_vector(unsigned(lp_word64) srl ((3 - lp_word_pos) * 16));
+                            if (lp_word_pos /= 3) then
+                                lp_64bit_misaligned <= '1';
+                            end if;
+                        -- if the event is too big, just close it here (this is an end-of-event-timeout)
+                        elsif (eb_event_too_big = '1') then
+                            lp_event_in_progress <= '0';
+                            lp_end_event <= '0';
+                            lp_word_pos <= 0;
+                            infifo_wr_en <= '0';
+                            infifo_din <= lp_word64;                            
+                        -- otherwise, this event is still in progress, so push it to the fifo every 4 cycles (once we have a complete 64bit word ready)
+                        elsif (lp_word_pos = 3) then
+                            lp_event_in_progress <= '1';
+                            lp_end_event <= '0';
+                            lp_word_pos <= 0;
+                            infifo_wr_en <= '1';
+                            infifo_din <= lp_word64;
                         else
-                            -- keep on pushing to the input fifo - this is valid event data 
-                            infifo_wr_en <= '1';
+                            lp_event_in_progress <= '1';
+                            lp_end_event <= '0';
+                            lp_word_pos <= lp_word_pos + 1;
+                            infifo_wr_en <= '0';
+                            infifo_din <= lp_word64;
                         end if;
     
                     end if;
+                    
+                elsif (lp_end_event = '1') then
+                    lp_event_in_progress <= '0';
+                    lp_end_event <= '0';
+                    lp_word_pos <= 0;
+                    infifo_wr_en <= '0';
+                    infifo_din <= lp_word64;
+                    lp_word64 := (others => '0');
+                else                    
+                    lp_event_in_progress <= lp_event_in_progress;
+                    lp_end_event <= '0';
+                    lp_word_pos <= lp_word_pos;
+                    infifo_wr_en <= '0';
+                    infifo_din <= lp_word64;
+                    lp_word64 := lp_word64;
                 end if;
+                
             end if;
         end if;
     end process;    
@@ -434,14 +453,16 @@ begin
                 eb_event_num <= (others => '0');
                 eb_event_size <= (others => '0');
                 eb_event_too_big <= '0';
+                eb_64bit_misaligned <= '0';
                 err_event_too_big <= '0';
                 err_evtfifo_full <= '0';
+                err_64bit_misaligned <= '0';                
             else
                 
                 evtfifo_wr_en <= '0';
                 
                 -- increment event size if the event is in progress and we see an infifo push
-                if ((ep_event_in_progress = '1') and (infifo_wr_en = '1')) then
+                if ((lp_event_in_progress = '1') and (infifo_wr_en = '1')) then
 
                     if (eb_event_size /= x"fff") then                    
                         eb_event_size <= eb_event_size + 1;
@@ -456,21 +477,30 @@ begin
                         err_event_too_big <= err_event_too_big;
                     end if;                
                     
+                    if (lp_64bit_misaligned = '1') then
+                        eb_64bit_misaligned <= '1';
+                        err_64bit_misaligned <= '1';
+                    end if;
+                    
                 -- reset things if event is not in progress
-                elsif (ep_event_in_progress = '0') then
+                elsif (lp_event_in_progress = '0') then
                     eb_event_size <= (others => '0');
                     eb_event_too_big <= '0';
+                    eb_64bit_misaligned <= '0';
                     err_event_too_big <= err_event_too_big; -- keep this latched in - it will propagate to TTS error, so we just wait for reset
+                    err_64bit_misaligned <= err_64bit_misaligned;
                     
                 -- just to cover all cases and make life easier for the synthesizer
                 else
                     eb_event_size <= eb_event_size;
                     eb_event_too_big <= eb_event_too_big;
                     err_event_too_big <= err_event_too_big;
+                    err_64bit_misaligned <= err_64bit_misaligned;
+                    eb_64bit_misaligned <= eb_64bit_misaligned;
                 end if;
                        
                 -- event has just ended         
-                if ((eb_event_size /= x"000") and (ep_event_in_progress = '0')) then
+                if ((eb_event_size /= x"000") and (lp_event_in_progress = '0')) then
                     
                     -- Push to event FIFO
                     if (evtfifo_full = '0') then
@@ -485,7 +515,7 @@ begin
                                        err_infifo_near_full & 
                                        err_infifo_underflow &
                                        eb_event_too_big &
-                                       '0' & -- unused for now 
+                                       eb_64bit_misaligned & 
                                        '0' & -- unused for now
                                        '0' & -- unused for now
                                        '0' & -- unused for now
@@ -520,6 +550,7 @@ begin
     status_o.err_evtfifo_full           <= err_evtfifo_full;
     status_o.err_infifo_underflow       <= err_infifo_underflow;
     status_o.err_infifo_full            <= err_infifo_full;
+    status_o.err_64bit_misaligned       <= err_64bit_misaligned;
     status_o.eb_event_num               <= std_logic_vector(eb_event_num);
 
 end input_processor_arch;

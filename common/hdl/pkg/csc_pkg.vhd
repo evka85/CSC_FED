@@ -8,10 +8,10 @@ package csc_pkg is
     --==  Firmware version  ==--
     --========================-- 
 
-    constant C_FIRMWARE_DATE    : std_logic_vector(31 downto 0) := x"20180925";
+    constant C_FIRMWARE_DATE    : std_logic_vector(31 downto 0) := x"20180926";
     constant C_FIRMWARE_MAJOR   : integer range 0 to 255        := 1;
     constant C_FIRMWARE_MINOR   : integer range 0 to 255        := 0;
-    constant C_FIRMWARE_BUILD   : integer range 0 to 255        := 6;
+    constant C_FIRMWARE_BUILD   : integer range 0 to 255        := 7;
 
     --======================--
     --==      General     ==--
@@ -105,6 +105,7 @@ package csc_pkg is
         err_evtfifo_full        : std_logic;
         err_infifo_underflow    : std_logic;
         err_infifo_full         : std_logic;
+        err_64bit_misaligned    : std_logic;
         eb_event_num            : std_logic_vector(23 downto 0);
     end record;
 

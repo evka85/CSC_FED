@@ -59,3 +59,10 @@ Updated the DAQ module to handle resyncs, and fix TTS state propagation from the
 Two additional features were added:
   * FREEZE_ON_ERROR -- This is a debug feature which when turned on will start sending only IDLE words to all input processors and block L1As as soon as TTS error is detected. This gets reset with a DAQ module reset or a TTC resync.
   * RESET_TILL_RESYNC -- If this is true, then after the user removes the reset, this module will still stay in reset till the resync is received. This is handy for starting to take data in the middle of an active run.
+
+--------------------
+----   1.0.7    ----
+---- 2018-09-26 ----
+--------------------
+
+Change the input processor to process data on each 16bit arrival instead of just when 64bit word is available. This allows it to recognize a DMB trailer even if it's misalligned with a 64bit boundary. 64bit misaligned events are reported in bit 14 of the GEM chamber header, also this is latched as an error flag in the status and can be read through a register called EVT_64BIT_ALIGN_ERR for each link.

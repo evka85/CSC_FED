@@ -30,8 +30,8 @@ def main():
     if not filename:
         filename = os.environ['HOME'] + "/csc_fed/data/run_" + datetime.datetime.now().strftime("%Y-%m-%d__%H_%M_%S") + ".raw"
 
-    inputMask = 0x1
-    inputMaskStr = raw_input("DAQ input enable bitmask as hex (default = 0x1, meaning only the first input is enabled)")
+    inputMask = 0x7eff
+    inputMaskStr = raw_input("DAQ input enable bitmask as hex (default = 0x7eff, meaning only the first input is enabled)")
     if inputMaskStr:
         inputMask = parseInt(inputMaskStr)
 
@@ -88,17 +88,17 @@ def main():
             writeReg(daqLastEventDisableNode, 0x0)
             RAW_FILE.write("==================== Num words = %i ====================\n" % evtSize)
             RAW_FILE.write("========================================================\n")
-        else:
-            sleep(0.00001)
+
         if (numEvents % 10 == 0):
             sys.stdout.write("\rEvents: %i" % numEvents)
             sys.stdout.flush()
-            ttsState = parseInt(readReg(ttsStateNode))
-            if ttsState == 0xc:
-                printRed("TTS state = ERROR! Exiting...")
-                RAW_FILE.close()
-                dumpDaqRegs()
-                sys.exit(0)
+
+        ttsState = parseInt(readReg(ttsStateNode))
+        if ttsState == 0xc:
+            printRed("TTS state = ERROR! Exiting...")
+            RAW_FILE.close()
+            dumpDaqRegs()
+            sys.exit(0)
 
 def exitHandler(signal, frame):
     global RAW_FILE
@@ -116,12 +116,22 @@ def initDaqRegAddrs():
 
 def dumpDaqRegs():
     printRed("=================================================================")
-    printRed("===================== Dumping DAQ Registers =====================")
+    printRed("===================== Dumping TTS Registers =====================")
+    printRed("=================================================================")
+
+    nodes = getNodesContaining('TTS_STATE')
+    for node in nodes:
+        if node.permission is not None and 'r' in node.permission:
+            print "%s\t\t\t%s" % (node.name, readReg(node))
+
+    printRed("=================================================================")
+    printRed("=================== Dumping all DAQ Registers ===================")
     printRed("=================================================================")
 
     nodes = getNodesContaining('CSC_FED.DAQ')
     for node in nodes:
-        print "%s\t\t\t%s" % (node.name, readReg(node))
+        if node.permission is not None and 'r' in node.permission:
+            print "%s\t\t\t%s" % (node.name, readReg(node))
 
 
 #---------------------------- utils ------------------------------------------------

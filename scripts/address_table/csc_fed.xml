@@ -183,7 +183,7 @@
         </node>
 
         <node id="DMB${DMB_IDX}" address="0x10" description="Link(s) of DMB ${DMB_IDX}"
-              generate="true" generate_size="2" generate_address_step="0x10" generate_idx_var="DMB_IDX">
+              generate="true" generate_size="24" generate_address_step="0x10" generate_idx_var="DMB_IDX">
             <node id="MGT_BUF_OVF_CNT" address="0x0" mask="0x0000ffff" permission="r"
                   description="Number of times that MGT elastic buffer has been in overflow"
                   fw_signal="dmb_mgt_buf_ovf_arr(${DMB_IDX})"
@@ -419,7 +419,7 @@
 
         <node id="DMB${DMB_IDX}"  address="0x10"
               description="Link specific registers for DMB${DMB_IDX}"
-              generate="true" generate_size="2" generate_address_step="0x10" generate_idx_var="DMB_IDX">
+              generate="true" generate_size="24" generate_address_step="0x10" generate_idx_var="DMB_IDX">
             
             <!--node id="CONTROL"  address="0x0">
             </node-->
@@ -456,6 +456,9 @@
                                    a stream of valid data.
                                    TTS ERROR is asserted when this bit is 1"
                       fw_signal="input_status_arr(${DMB_IDX}).err_event_too_big"/>
+                <node id="EVT_64BIT_ALIGN_ERR"           mask="0x00000001" permission="r" address="0x0"
+                      description="There was at least one event where the DMB trailer was not aligned to 64bit word boundaries."
+                      fw_signal="input_status_arr(${DMB_IDX}).err_64bit_misaligned"/>
                 <node id="TTS_STATE"           mask="0x0000f000" permission="r" address="0x0"
                       description="Input TTS state (gets integrated into global TTS state later)"
                       fw_signal="input_status_arr(${DMB_IDX}).tts_state"/>

@@ -145,6 +145,7 @@
           <node id="INPUT_FIFO_HAD_UFLOW" address="0x00000000" permission="r" mask="0x00000200"/>
           <node id="EVENT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000400"/>
           <node id="EVT_SIZE_ERR" address="0x00000000" permission="r" mask="0x00000800"/>
+          <node id="EVT_64BIT_ALIGN_ERR" address="0x00000000" permission="r" mask="0x00000001"/>
           <node id="TTS_STATE" address="0x00000000" permission="r" mask="0x0000f000"/>
           <node id="INPUT_FIFO_IS_UFLOW" address="0x00000000" permission="r" mask="0x01000000"/>
           <node id="INPUT_FIFO_IS_FULL" address="0x00000000" permission="r" mask="0x02000000"/>
@@ -171,6 +172,7 @@
           <node id="INPUT_FIFO_HAD_UFLOW" address="0x00000000" permission="r" mask="0x00000200"/>
           <node id="EVENT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000400"/>
           <node id="EVT_SIZE_ERR" address="0x00000000" permission="r" mask="0x00000800"/>
+          <node id="EVT_64BIT_ALIGN_ERR" address="0x00000000" permission="r" mask="0x00000001"/>
           <node id="TTS_STATE" address="0x00000000" permission="r" mask="0x0000f000"/>
           <node id="INPUT_FIFO_IS_UFLOW" address="0x00000000" permission="r" mask="0x01000000"/>
           <node id="INPUT_FIFO_IS_FULL" address="0x00000000" permission="r" mask="0x02000000"/>

@@ -969,6 +969,9 @@ package registers is
     constant REG_DAQ_LAST_EVENT_FIFO_DATA_MSB    : integer := 31;
     constant REG_DAQ_LAST_EVENT_FIFO_DATA_LSB     : integer := 0;
 
+    constant REG_DAQ_DMB0_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '0' & x"10";
+    constant REG_DAQ_DMB0_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
+
     constant REG_DAQ_DMB0_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '0' & x"10";
     constant REG_DAQ_DMB0_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
 
@@ -1036,6 +1039,9 @@ package registers is
     constant REG_DAQ_DMB0_COUNTERS_EVT_RATE_ADDR    : std_logic_vector(8 downto 0) := '0' & x"16";
     constant REG_DAQ_DMB0_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB0_COUNTERS_EVT_RATE_LSB     : integer := 15;
+
+    constant REG_DAQ_DMB1_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '0' & x"20";
+    constant REG_DAQ_DMB1_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
 
     constant REG_DAQ_DMB1_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '0' & x"20";
     constant REG_DAQ_DMB1_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
@@ -1105,6 +1111,9 @@ package registers is
     constant REG_DAQ_DMB1_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB1_COUNTERS_EVT_RATE_LSB     : integer := 15;
 
+    constant REG_DAQ_DMB2_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '0' & x"30";
+    constant REG_DAQ_DMB2_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
+
     constant REG_DAQ_DMB2_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '0' & x"30";
     constant REG_DAQ_DMB2_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
 
@@ -1172,6 +1181,9 @@ package registers is
     constant REG_DAQ_DMB2_COUNTERS_EVT_RATE_ADDR    : std_logic_vector(8 downto 0) := '0' & x"36";
     constant REG_DAQ_DMB2_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB2_COUNTERS_EVT_RATE_LSB     : integer := 15;
+
+    constant REG_DAQ_DMB3_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '0' & x"40";
+    constant REG_DAQ_DMB3_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
 
     constant REG_DAQ_DMB3_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '0' & x"40";
     constant REG_DAQ_DMB3_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
@@ -1241,6 +1253,9 @@ package registers is
     constant REG_DAQ_DMB3_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB3_COUNTERS_EVT_RATE_LSB     : integer := 15;
 
+    constant REG_DAQ_DMB4_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '0' & x"50";
+    constant REG_DAQ_DMB4_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
+
     constant REG_DAQ_DMB4_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '0' & x"50";
     constant REG_DAQ_DMB4_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
 
@@ -1308,6 +1323,9 @@ package registers is
     constant REG_DAQ_DMB4_COUNTERS_EVT_RATE_ADDR    : std_logic_vector(8 downto 0) := '0' & x"56";
     constant REG_DAQ_DMB4_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB4_COUNTERS_EVT_RATE_LSB     : integer := 15;
+
+    constant REG_DAQ_DMB5_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '0' & x"60";
+    constant REG_DAQ_DMB5_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
 
     constant REG_DAQ_DMB5_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '0' & x"60";
     constant REG_DAQ_DMB5_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
@@ -1377,6 +1395,9 @@ package registers is
     constant REG_DAQ_DMB5_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB5_COUNTERS_EVT_RATE_LSB     : integer := 15;
 
+    constant REG_DAQ_DMB6_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '0' & x"70";
+    constant REG_DAQ_DMB6_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
+
     constant REG_DAQ_DMB6_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '0' & x"70";
     constant REG_DAQ_DMB6_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
 
@@ -1444,6 +1465,9 @@ package registers is
     constant REG_DAQ_DMB6_COUNTERS_EVT_RATE_ADDR    : std_logic_vector(8 downto 0) := '0' & x"76";
     constant REG_DAQ_DMB6_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB6_COUNTERS_EVT_RATE_LSB     : integer := 15;
+
+    constant REG_DAQ_DMB7_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '0' & x"80";
+    constant REG_DAQ_DMB7_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
 
     constant REG_DAQ_DMB7_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '0' & x"80";
     constant REG_DAQ_DMB7_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
@@ -1513,6 +1537,9 @@ package registers is
     constant REG_DAQ_DMB7_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB7_COUNTERS_EVT_RATE_LSB     : integer := 15;
 
+    constant REG_DAQ_DMB8_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '0' & x"90";
+    constant REG_DAQ_DMB8_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
+
     constant REG_DAQ_DMB8_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '0' & x"90";
     constant REG_DAQ_DMB8_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
 
@@ -1580,6 +1607,9 @@ package registers is
     constant REG_DAQ_DMB8_COUNTERS_EVT_RATE_ADDR    : std_logic_vector(8 downto 0) := '0' & x"96";
     constant REG_DAQ_DMB8_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB8_COUNTERS_EVT_RATE_LSB     : integer := 15;
+
+    constant REG_DAQ_DMB9_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '0' & x"a0";
+    constant REG_DAQ_DMB9_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
 
     constant REG_DAQ_DMB9_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '0' & x"a0";
     constant REG_DAQ_DMB9_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
@@ -1649,6 +1679,9 @@ package registers is
     constant REG_DAQ_DMB9_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB9_COUNTERS_EVT_RATE_LSB     : integer := 15;
 
+    constant REG_DAQ_DMB10_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '0' & x"b0";
+    constant REG_DAQ_DMB10_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
+
     constant REG_DAQ_DMB10_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '0' & x"b0";
     constant REG_DAQ_DMB10_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
 
@@ -1716,6 +1749,9 @@ package registers is
     constant REG_DAQ_DMB10_COUNTERS_EVT_RATE_ADDR    : std_logic_vector(8 downto 0) := '0' & x"b6";
     constant REG_DAQ_DMB10_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB10_COUNTERS_EVT_RATE_LSB     : integer := 15;
+
+    constant REG_DAQ_DMB11_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '0' & x"c0";
+    constant REG_DAQ_DMB11_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
 
     constant REG_DAQ_DMB11_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '0' & x"c0";
     constant REG_DAQ_DMB11_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
@@ -1785,6 +1821,9 @@ package registers is
     constant REG_DAQ_DMB11_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB11_COUNTERS_EVT_RATE_LSB     : integer := 15;
 
+    constant REG_DAQ_DMB12_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '0' & x"d0";
+    constant REG_DAQ_DMB12_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
+
     constant REG_DAQ_DMB12_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '0' & x"d0";
     constant REG_DAQ_DMB12_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
 
@@ -1852,6 +1891,9 @@ package registers is
     constant REG_DAQ_DMB12_COUNTERS_EVT_RATE_ADDR    : std_logic_vector(8 downto 0) := '0' & x"d6";
     constant REG_DAQ_DMB12_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB12_COUNTERS_EVT_RATE_LSB     : integer := 15;
+
+    constant REG_DAQ_DMB13_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '0' & x"e0";
+    constant REG_DAQ_DMB13_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
 
     constant REG_DAQ_DMB13_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '0' & x"e0";
     constant REG_DAQ_DMB13_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
@@ -1921,6 +1963,9 @@ package registers is
     constant REG_DAQ_DMB13_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB13_COUNTERS_EVT_RATE_LSB     : integer := 15;
 
+    constant REG_DAQ_DMB14_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '0' & x"f0";
+    constant REG_DAQ_DMB14_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
+
     constant REG_DAQ_DMB14_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '0' & x"f0";
     constant REG_DAQ_DMB14_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
 
@@ -1988,6 +2033,9 @@ package registers is
     constant REG_DAQ_DMB14_COUNTERS_EVT_RATE_ADDR    : std_logic_vector(8 downto 0) := '0' & x"f6";
     constant REG_DAQ_DMB14_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB14_COUNTERS_EVT_RATE_LSB     : integer := 15;
+
+    constant REG_DAQ_DMB15_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '1' & x"00";
+    constant REG_DAQ_DMB15_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
 
     constant REG_DAQ_DMB15_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '1' & x"00";
     constant REG_DAQ_DMB15_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
@@ -2057,6 +2105,9 @@ package registers is
     constant REG_DAQ_DMB15_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB15_COUNTERS_EVT_RATE_LSB     : integer := 15;
 
+    constant REG_DAQ_DMB16_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '1' & x"10";
+    constant REG_DAQ_DMB16_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
+
     constant REG_DAQ_DMB16_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '1' & x"10";
     constant REG_DAQ_DMB16_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
 
@@ -2124,6 +2175,9 @@ package registers is
     constant REG_DAQ_DMB16_COUNTERS_EVT_RATE_ADDR    : std_logic_vector(8 downto 0) := '1' & x"16";
     constant REG_DAQ_DMB16_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB16_COUNTERS_EVT_RATE_LSB     : integer := 15;
+
+    constant REG_DAQ_DMB17_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '1' & x"20";
+    constant REG_DAQ_DMB17_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
 
     constant REG_DAQ_DMB17_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '1' & x"20";
     constant REG_DAQ_DMB17_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
@@ -2193,6 +2247,9 @@ package registers is
     constant REG_DAQ_DMB17_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB17_COUNTERS_EVT_RATE_LSB     : integer := 15;
 
+    constant REG_DAQ_DMB18_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '1' & x"30";
+    constant REG_DAQ_DMB18_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
+
     constant REG_DAQ_DMB18_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '1' & x"30";
     constant REG_DAQ_DMB18_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
 
@@ -2260,6 +2317,9 @@ package registers is
     constant REG_DAQ_DMB18_COUNTERS_EVT_RATE_ADDR    : std_logic_vector(8 downto 0) := '1' & x"36";
     constant REG_DAQ_DMB18_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB18_COUNTERS_EVT_RATE_LSB     : integer := 15;
+
+    constant REG_DAQ_DMB19_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '1' & x"40";
+    constant REG_DAQ_DMB19_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
 
     constant REG_DAQ_DMB19_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '1' & x"40";
     constant REG_DAQ_DMB19_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
@@ -2329,6 +2389,9 @@ package registers is
     constant REG_DAQ_DMB19_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB19_COUNTERS_EVT_RATE_LSB     : integer := 15;
 
+    constant REG_DAQ_DMB20_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '1' & x"50";
+    constant REG_DAQ_DMB20_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
+
     constant REG_DAQ_DMB20_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '1' & x"50";
     constant REG_DAQ_DMB20_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
 
@@ -2396,6 +2459,9 @@ package registers is
     constant REG_DAQ_DMB20_COUNTERS_EVT_RATE_ADDR    : std_logic_vector(8 downto 0) := '1' & x"56";
     constant REG_DAQ_DMB20_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB20_COUNTERS_EVT_RATE_LSB     : integer := 15;
+
+    constant REG_DAQ_DMB21_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '1' & x"60";
+    constant REG_DAQ_DMB21_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
 
     constant REG_DAQ_DMB21_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '1' & x"60";
     constant REG_DAQ_DMB21_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
@@ -2465,6 +2531,9 @@ package registers is
     constant REG_DAQ_DMB21_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB21_COUNTERS_EVT_RATE_LSB     : integer := 15;
 
+    constant REG_DAQ_DMB22_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '1' & x"70";
+    constant REG_DAQ_DMB22_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
+
     constant REG_DAQ_DMB22_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '1' & x"70";
     constant REG_DAQ_DMB22_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
 
@@ -2532,6 +2601,9 @@ package registers is
     constant REG_DAQ_DMB22_COUNTERS_EVT_RATE_ADDR    : std_logic_vector(8 downto 0) := '1' & x"76";
     constant REG_DAQ_DMB22_COUNTERS_EVT_RATE_MSB    : integer := 31;
     constant REG_DAQ_DMB22_COUNTERS_EVT_RATE_LSB     : integer := 15;
+
+    constant REG_DAQ_DMB23_STATUS_EVT_64BIT_ALIGN_ERR_ADDR    : std_logic_vector(8 downto 0) := '1' & x"80";
+    constant REG_DAQ_DMB23_STATUS_EVT_64BIT_ALIGN_ERR_BIT    : integer := 0;
 
     constant REG_DAQ_DMB23_STATUS_INPUT_FIFO_HAD_OFLOW_ADDR    : std_logic_vector(8 downto 0) := '1' & x"80";
     constant REG_DAQ_DMB23_STATUS_INPUT_FIFO_HAD_OFLOW_BIT    : integer := 8;
