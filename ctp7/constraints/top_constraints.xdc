@@ -280,54 +280,60 @@ create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[11].g
 create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[11].gen_gth_*/i_gthe2*RXOUTCLK}]
 
 
+############################## SPY GbE ##############################
 
-############# Channel [12] - 1.6 Gbps TX, 1.6 Gbps RX #############
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[12].gen_gth_*/i_gthe2*TXOUTCLK}]
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[12].gen_gth_*/i_gthe2*RXOUTCLK}]
 
-############# Channel [13] - 1.6 Gbps TX, 1.6 Gbps RX #############
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[13].gen_gth_*/i_gthe2*TXOUTCLK}]
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[13].gen_gth_*/i_gthe2*RXOUTCLK}]
+############# Channel [12] - 1.25 Gbps TX, 1.25 Gbps RX #############
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[12].gen_gth_*/i_gthe2*TXOUTCLK}]
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[12].gen_gth_*/i_gthe2*RXOUTCLK}]
 
-############# Channel [14] - 1.6 Gbps TX, 1.6 Gbps RX #############
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[14].gen_gth_*/i_gthe2*TXOUTCLK}]
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[14].gen_gth_*/i_gthe2*RXOUTCLK}]
+############# Channel [13] - 1.25 Gbps TX, 1.25 Gbps RX #############
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[13].gen_gth_*/i_gthe2*TXOUTCLK}]
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[13].gen_gth_*/i_gthe2*RXOUTCLK}]
 
-############# Channel [15] - 1.6 Gbps TX, 1.6 Gbps RX #############
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[15].gen_gth_*/i_gthe2*TXOUTCLK}]
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[15].gen_gth_*/i_gthe2*RXOUTCLK}]
+############# Channel [14] - 1.25 Gbps TX, 1.25 Gbps RX #############
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[14].gen_gth_*/i_gthe2*TXOUTCLK}]
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[14].gen_gth_*/i_gthe2*RXOUTCLK}]
 
-############# Channel [16] - 1.6 Gbps TX, 1.6 Gbps RX #############
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[16].gen_gth_*/i_gthe2*TXOUTCLK}]
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[16].gen_gth_*/i_gthe2*RXOUTCLK}]
+############# Channel [15] - 1.25 Gbps TX, 1.25 Gbps RX #############
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[15].gen_gth_*/i_gthe2*TXOUTCLK}]
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[15].gen_gth_*/i_gthe2*RXOUTCLK}]
 
-############# Channel [17] - 1.6 Gbps TX, 1.6 Gbps RX #############
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[17].gen_gth_*/i_gthe2*TXOUTCLK}]
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[17].gen_gth_*/i_gthe2*RXOUTCLK}]
+############# Channel [16] - 1.25 Gbps TX, 1.25 Gbps RX #############
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[16].gen_gth_*/i_gthe2*TXOUTCLK}]
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[16].gen_gth_*/i_gthe2*RXOUTCLK}]
 
-############# Channel [18] - 1.6 Gbps TX, 1.6 Gbps RX #############
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[18].gen_gth_*/i_gthe2*TXOUTCLK}]
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[18].gen_gth_*/i_gthe2*RXOUTCLK}]
+############# Channel [17] - 1.25 Gbps TX, 1.25 Gbps RX #############
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[17].gen_gth_*/i_gthe2*TXOUTCLK}]
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[17].gen_gth_*/i_gthe2*RXOUTCLK}]
 
-############# Channel [19] - 1.6 Gbps TX, 1.6 Gbps RX #############
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[19].gen_gth_*/i_gthe2*TXOUTCLK}]
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[19].gen_gth_*/i_gthe2*RXOUTCLK}]
+############# Channel [18] - 1.25 Gbps TX, 1.25 Gbps RX #############
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[18].gen_gth_*/i_gthe2*TXOUTCLK}]
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[18].gen_gth_*/i_gthe2*RXOUTCLK}]
 
-############# Channel [20] - 1.6 Gbps TX, 1.6 Gbps RX #############
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[20].gen_gth_*/i_gthe2*TXOUTCLK}]
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[20].gen_gth_*/i_gthe2*RXOUTCLK}]
 
-############# Channel [21] - 1.6 Gbps TX, 1.6 Gbps RX #############
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[21].gen_gth_*/i_gthe2*TXOUTCLK}]
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[21].gen_gth_*/i_gthe2*RXOUTCLK}]
 
-############# Channel [22] - 1.6 Gbps TX, 1.6 Gbps RX #############
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[22].gen_gth_*/i_gthe2*TXOUTCLK}]
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[22].gen_gth_*/i_gthe2*RXOUTCLK}]
+############# Channel [19] - 1.25 Gbps TX, 1.25 Gbps RX #############
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[19].gen_gth_*/i_gthe2*TXOUTCLK}]
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[19].gen_gth_*/i_gthe2*RXOUTCLK}]
 
-############# Channel [23] - 1.6 Gbps TX, 1.6 Gbps RX #############
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[23].gen_gth_*/i_gthe2*TXOUTCLK}]
-create_clock -period 12.500 [get_pins -hier -filter {name=~*gen_gth_single[23].gen_gth_*/i_gthe2*RXOUTCLK}]
+############# Channel [20] - 1.25 Gbps TX, 1.25 Gbps RX #############
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[20].gen_gth_*/i_gthe2*TXOUTCLK}]
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[20].gen_gth_*/i_gthe2*RXOUTCLK}]
+
+############# Channel [21] - 1.25 Gbps TX, 1.25 Gbps RX #############
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[21].gen_gth_*/i_gthe2*TXOUTCLK}]
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[21].gen_gth_*/i_gthe2*RXOUTCLK}]
+
+############# Channel [22] - 1.25 Gbps TX, 1.25 Gbps RX #############
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[22].gen_gth_*/i_gthe2*TXOUTCLK}]
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[22].gen_gth_*/i_gthe2*RXOUTCLK}]
+
+############# Channel [23] - 1.25 Gbps TX, 1.25 Gbps RX #############
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[23].gen_gth_*/i_gthe2*TXOUTCLK}]
+create_clock -period 16.000 [get_pins -hier -filter {name=~*gen_gth_single[23].gen_gth_*/i_gthe2*RXOUTCLK}]
+
+####################################################################
 
 
 
@@ -394,6 +400,8 @@ set_clock_groups -asynchronous -group [get_clocks {i_system/i_gth_wrapper/gen_gt
 set_clock_groups -asynchronous -group [get_clocks {i_system/i_gth_wrapper/gen_gth_single[*].*/i_gthe2/?XOUTCLK}] -group [get_clocks s_clk_80]
 set_clock_groups -asynchronous -group [get_clocks {i_system/i_gth_wrapper/gen_gth_single[*].*/i_gthe2/?XOUTCLK}] -group [get_clocks s_clk_40]
 set_clock_groups -asynchronous -group [get_clocks {i_system/i_gth_wrapper/gen_gth_single[*].*/i_gthe2/RXOUTCLK}] -group [get_clocks clkout0]
+
+set_clock_groups -asynchronous -group [get_clocks {i_system/i_gth_wrapper/gen_gth_single[*].gen_gth_1p25g*/i_gthe2*TXOUTCLK}] -group [get_clocks {i_system/i_gth_wrapper/gen_gth_single[*].gen_gth_1p6g*/i_gthe2*TXOUTCLK}]
 
 set_clock_groups -asynchronous -group [get_clocks clk_out2_v7_bd_clk_wiz_0_0] -group [get_clocks clkout0]
 

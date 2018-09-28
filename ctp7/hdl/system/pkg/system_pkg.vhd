@@ -32,7 +32,7 @@ package system_package is
 
   constant C_ERR_CNT_MAX_COUNT : std_logic_vector(BCFG_LINK_ERR_CNT_WIDTH-1 downto 0) := (others => '1');
 
-  type t_gth_link_type is (gth_1p6g_8b10b_buf, gth_4p8g_raw_nobuf, gth_3p2g_8b10b_nobuf);
+  type t_gth_link_type is (gth_1p6g_8b10b_buf, gth_1p25g_8b10b_buf, gth_4p8g_raw_nobuf, gth_3p2g_8b10b_nobuf);
 
   type t_gth_config is
   record
@@ -56,18 +56,18 @@ package system_package is
     (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 10
     (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 11
 
-    (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 12
-    (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 13
-    (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 14
-    (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 15
-    (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 16
-    (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 17
-    (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 18
-    (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 19
-    (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 20
-    (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 21
-    (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 22
-    (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 23
+    (gth_1p25g_8b10b_buf, TRUE),                  -- GTH FW Ch 12
+    (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 13
+    (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 14
+    (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 15
+    (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 16
+    (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 17
+    (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 18
+    (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 19
+    (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 20
+    (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 21
+    (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 22
+    (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 23
     
     (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 24
     (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 25

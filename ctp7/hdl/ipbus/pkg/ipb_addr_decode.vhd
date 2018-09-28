@@ -11,6 +11,7 @@ package ipb_addr_decode is
         links       : integer;
         ttc         : integer;
         daq         : integer;
+        tests       : integer;
     end record;
 
     constant C_NUM_IPB_SLAVES : integer := 39;
@@ -20,7 +21,8 @@ package ipb_addr_decode is
         system  => 0,
         links   => 1,
         ttc     => 2,
-        daq     => 3
+        daq     => 3,
+        tests   => 4
     );
 
     function ipb_addr_sel(signal addr : in std_logic_vector(31 downto 0)) return integer;
@@ -45,6 +47,7 @@ package body ipb_addr_decode is
         elsif std_match(addr, "--------00100000000-------------") then sel := C_IPB_SLV.links;
         elsif std_match(addr, "--------001100000000000000------") then sel := C_IPB_SLV.ttc;
         elsif std_match(addr, "--------01000000000-------------") then sel := C_IPB_SLV.daq;
+        elsif std_match(addr, "--------01010000000-------------") then sel := C_IPB_SLV.tests;
         else sel := 999;
         end if;
 

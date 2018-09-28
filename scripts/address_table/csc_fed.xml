@@ -183,7 +183,7 @@
         </node>
 
         <node id="DMB${DMB_IDX}" address="0x10" description="Link(s) of DMB ${DMB_IDX}"
-              generate="true" generate_size="24" generate_address_step="0x10" generate_idx_var="DMB_IDX">
+              generate="true" generate_size="15" generate_address_step="0x10" generate_idx_var="DMB_IDX">
             <node id="MGT_BUF_OVF_CNT" address="0x0" mask="0x0000ffff" permission="r"
                   description="Number of times that MGT elastic buffer has been in overflow"
                   fw_signal="dmb_mgt_buf_ovf_arr(${DMB_IDX})"
@@ -419,7 +419,7 @@
 
         <node id="DMB${DMB_IDX}"  address="0x10"
               description="Link specific registers for DMB${DMB_IDX}"
-              generate="true" generate_size="24" generate_address_step="0x10" generate_idx_var="DMB_IDX">
+              generate="true" generate_size="15" generate_address_step="0x10" generate_idx_var="DMB_IDX">
             
             <!--node id="CONTROL"  address="0x0">
             </node-->
@@ -526,5 +526,38 @@
     </node>
     <!-- end of DAQ module -->
         
+    <!-- Test module -->
+    <node id="TEST"  address="0x00500000"
+          description="This module is controling various system tests, like loopbacks, user defined eth packet sending, etc"
+          fw_is_module="true"
+          fw_module_file="../common/hdl/tests/csc_tests.vhd"
+          fw_user_clock_signal="ipb_clk_i"
+          fw_bus_clock_signal="ipb_clk_i"
+          fw_bus_reset_signal="ipb_reset_i"
+          fw_master_bus_signal="ipb_mosi_i"
+          fw_slave_bus_signal="ipb_miso_o"
+          fw_reg_addr_msb="7"
+          fw_reg_addr_lsb="0">
+
+        <node id="CTRL" address="0x0">
+            <node id="MODULE_RESET" address="0x0" permission="w" mask="0x80000000" description="TTC module reset"
+                  fw_write_pulse_signal="reset_local"/>
+        </node>      
+        
+        <node id="GBE_TEST" address="0x10">
+            <node id="ENABLE" address="0x0" mask="0x00000001" permission="rw"
+                  description="Enable this module, note that this will cause the GbE link to be disconnected from DAQ and only be connected to the test module where you'll be able to generate your own packets."
+                  fw_signal="gbe_test_enable" fw_default="0b1"/>
+            <node id="PUSH_GBE_DATA" address="0x1" mask="0x0003ffff" permission="w"
+                  description="Writing this register will push this word into a fifo which holds the packet to be transmitted uppon the start command. Note that bits [17:16] denote if the characters in bits [15:0] are K characters or not."
+                  fw_signal="gbe_user_data" fw_write_pulse_signal="gbe_user_data_en" fw_default="0x0"/>
+            <node id="START_TRANSMIT" address="0x2" permission="w" mask="0x80000000"
+                  description="Writing to this register will trigger sending of the packet that's in the fifo."
+                  fw_write_pulse_signal="gbe_send_en"/>
+        </node>
+
+    </node>
+    <!--end Test module -->
+
   </node>
 </node>

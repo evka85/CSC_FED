@@ -355,6 +355,47 @@ begin
         
     end generate;
 
+    gen_gth_1p25g : if c_gth_config_arr(n).gth_link_type = gth_1p25g_8b10b_buf generate
+
+      s_gth_tx_data_arr(n) <= gth_tx_data_arr_i(n);
+      gth_rx_data_arr_o(n) <= s_gth_rx_data_arr(n);
+      s_gth_rx_status_arr(n).rxnotintable <= s_gth_rx_data_arr(n).rxnotintable;
+      s_gth_rx_status_arr(n).rxdisperr <= s_gth_rx_data_arr(n).rxdisperr;
+
+      i_gth_single_1p25g : entity work.gth_single_1p25g_8b10b_buf
+        generic map
+        (
+                                        -- Simulation attributes
+          g_GT_SIM_GTRESET_SPEEDUP => g_GT_SIM_GTRESET_SPEEDUP
+          )
+        port map
+        (
+          gth_rx_serial_i => s_gth_rx_serial_arr(n),
+          gth_tx_serial_o => s_gth_tx_serial_arr(n),
+          gth_gt_clk_i    => s_gth_gt_clk_in_arr(n),
+          gth_gt_clk_o    => s_gth_gt_clk_out_arr(n),
+
+          gth_cpll_ctrl_i   => s_gth_cpll_ctrl_arr(n),
+          gth_cpll_init_i   => s_gth_cpll_init_arr(n),
+          gth_cpll_status_o => s_gth_cpll_status_arr(n),
+
+          gth_gt_drp_i      => s_gth_gt_drp_in_arr(n),
+          gth_gt_drp_o      => s_gth_gt_drp_out_arr(n),
+          gth_tx_ctrl_i     => s_gth_tx_ctrl_arr(n),
+          gth_tx_init_i     => s_gth_tx_init_arr(n),
+          gth_tx_status_o   => s_gth_tx_status_arr(n),
+          gth_rx_ctrl_i     => s_gth_rx_ctrl_arr(n),
+          gth_rx_ctrl_2_i   => s_gth_rx_ctrl_2_arr(n),
+          gth_rx_init_i     => s_gth_rx_init_arr(n),
+          gth_rx_status_o   => s_gth_rx_status_arr(n),
+          gth_misc_ctrl_i   => s_gth_misc_ctrl_arr(n),
+          gth_misc_status_o => s_gth_misc_status_arr(n),
+          gth_tx_data_i     => s_gth_tx_data_arr(n),
+          gth_rx_data_o     => s_gth_rx_data_arr(n)
+          );
+        
+    end generate;
+    
     gen_gth_3p2g : if c_gth_config_arr(n).gth_link_type = gth_3p2g_8b10b_nobuf generate
 
       s_gth_tx_data_arr(n) <= gth_tx_data_arr_i(n);
@@ -575,7 +616,7 @@ begin
       ----------------------- Phase alignment -----------------------------------------------
 
       -- No phase alignment is needed when using elastic buffers
-      gen_no_phase_align : if c_gth_config_arr(i*4+j).gth_link_type = gth_1p6g_8b10b_buf generate
+      gen_no_phase_align : if (c_gth_config_arr(i*4+j).gth_link_type = gth_1p6g_8b10b_buf) or (c_gth_config_arr(i*4+j).gth_link_type = gth_1p25g_8b10b_buf) generate
         
         s_gth_tx_run_phalignment_done(i*4+j)  <= '1';
         s_gth_rx_run_phalignment_done(i*4+j)  <= '1';

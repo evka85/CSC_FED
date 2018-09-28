@@ -58,7 +58,7 @@ package csc_board_config_package is
 --    constant CFG_SPY_LINK     : integer := 35;
 ---------------------------------------------------------------------
 
-    constant CFG_NUM_DMBS           : integer := 24;    -- total number of DMBs to instanciate
+    constant CFG_NUM_DMBS           : integer := 12;    -- total number of DMBs to instanciate
 
     constant CFG_DMB_CONFIG_ARR : t_dmb_config_arr(0 to CFG_NUM_DMBS - 1) := (
         (num_fibers => 1, rx_fibers => (0, 0, 0)),
@@ -72,24 +72,24 @@ package csc_board_config_package is
         (num_fibers => 1, rx_fibers => (8, 0, 0)),
         (num_fibers => 1, rx_fibers => (9, 0, 0)),
         (num_fibers => 1, rx_fibers => (10, 0, 0)),
-        (num_fibers => 1, rx_fibers => (11, 0, 0)),
+        (num_fibers => 1, rx_fibers => (11, 0, 0))
 
-        (num_fibers => 1, rx_fibers => (12, 0, 0)),
-        (num_fibers => 1, rx_fibers => (13, 0, 0)),
-        (num_fibers => 1, rx_fibers => (14, 0, 0)),
-        (num_fibers => 1, rx_fibers => (15, 0, 0)),
-        (num_fibers => 1, rx_fibers => (16, 0, 0)),
-        (num_fibers => 1, rx_fibers => (17, 0, 0)),
-        (num_fibers => 1, rx_fibers => (18, 0, 0)),
-        (num_fibers => 1, rx_fibers => (19, 0, 0)),
-        (num_fibers => 1, rx_fibers => (20, 0, 0)),
-        (num_fibers => 1, rx_fibers => (21, 0, 0)),
-        (num_fibers => 1, rx_fibers => (22, 0, 0)),
-        (num_fibers => 1, rx_fibers => (23, 0, 0))
+--        (num_fibers => 1, rx_fibers => (12, 0, 0)),
+--        (num_fibers => 1, rx_fibers => (13, 0, 0)),
+--        (num_fibers => 1, rx_fibers => (14, 0, 0))
+--        (num_fibers => 1, rx_fibers => (15, 0, 0)),
+--        (num_fibers => 1, rx_fibers => (16, 0, 0)),
+--        (num_fibers => 1, rx_fibers => (17, 0, 0)),
+--        (num_fibers => 1, rx_fibers => (18, 0, 0)),
+--        (num_fibers => 1, rx_fibers => (19, 0, 0)),
+--        (num_fibers => 1, rx_fibers => (20, 0, 0)),
+--        (num_fibers => 1, rx_fibers => (21, 0, 0)),
+--        (num_fibers => 1, rx_fibers => (22, 0, 0)), 
+--        (num_fibers => 1, rx_fibers => (23, 0, 0))
     );
 
-    constant CFG_USE_SPY_LINK : boolean := false;
-    constant CFG_SPY_LINK : integer := 35;
+    constant CFG_USE_SPY_LINK : boolean := true;
+    constant CFG_SPY_LINK : integer := 22;
 
     
     --***********************************************************************************************************

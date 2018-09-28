@@ -8,10 +8,10 @@ package csc_pkg is
     --==  Firmware version  ==--
     --========================-- 
 
-    constant C_FIRMWARE_DATE    : std_logic_vector(31 downto 0) := x"20180926";
+    constant C_FIRMWARE_DATE    : std_logic_vector(31 downto 0) := x"20180928";
     constant C_FIRMWARE_MAJOR   : integer range 0 to 255        := 1;
-    constant C_FIRMWARE_MINOR   : integer range 0 to 255        := 0;
-    constant C_FIRMWARE_BUILD   : integer range 0 to 255        := 7;
+    constant C_FIRMWARE_MINOR   : integer range 0 to 255        := 1;
+    constant C_FIRMWARE_BUILD   : integer range 0 to 255        := 2;
 
     --======================--
     --==      General     ==--

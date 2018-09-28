@@ -315,22 +315,8 @@ begin
     end generate;
 
     -------------------------- DEBUG ---------------------------------
-    i_dmb_rx_ila_inst : entity work.gt_rx_link_ila_wrapper
-        generic map (
-            g_CNT_START_DELAY => 80_000_000
-        )
-        port map(
-            clk_i           => csc_dmb_rx_usrclk_arr(0),
-            kchar_i         => csc_dmb_rx_data_arr(0).rxcharisk(1 downto 0),
-            comma_i         => csc_dmb_rx_data_arr(0).rxchariscomma(1 downto 0),
-            not_in_table_i  => csc_dmb_rx_data_arr(0).rxnotintable(1 downto 0),
-            disperr_i       => csc_dmb_rx_data_arr(0).rxdisperr(1 downto 0),
-            data_i          => csc_dmb_rx_data_arr(0).rxdata(15 downto 0),
-            bufstatus_i     => csc_dmb_rx_status_arr(0).rxbufstatus,
-            clkcorrcnt_i    => csc_dmb_rx_status_arr(0).rxclkcorcnt
-        );
 
-    i_odmb_rx_ila_inst : entity work.gt_rx_link_ila_wrapper
+    i_dmb1_rx_ila_inst : entity work.gt_rx_link_ila_wrapper
         generic map (
             g_CNT_START_DELAY => 80_000_000
         )
@@ -343,6 +329,21 @@ begin
             data_i          => csc_dmb_rx_data_arr(1).rxdata(15 downto 0),
             bufstatus_i     => csc_dmb_rx_status_arr(1).rxbufstatus,
             clkcorrcnt_i    => csc_dmb_rx_status_arr(1).rxclkcorcnt
+        );
+
+    i_spy_rx_ila_inst : entity work.gt_rx_link_ila_wrapper
+        generic map (
+            g_CNT_START_DELAY => 80_000_000
+        )
+        port map(
+            clk_i           => csc_spy_usrclk,
+            kchar_i         => csc_spy_rx_data.rxcharisk(1 downto 0),
+            comma_i         => csc_spy_rx_data.rxchariscomma(1 downto 0),
+            not_in_table_i  => csc_spy_rx_data.rxnotintable(1 downto 0),
+            disperr_i       => csc_spy_rx_data.rxdisperr(1 downto 0),
+            data_i          => csc_spy_rx_data.rxdata(15 downto 0),
+            bufstatus_i     => csc_spy_rx_status.rxbufstatus,
+            clkcorrcnt_i    => csc_spy_rx_status.rxclkcorcnt
         );
 
 

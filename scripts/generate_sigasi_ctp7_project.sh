@@ -13,7 +13,7 @@ mkdir $BASE_DIR/sigasi/csc_fed
 
 SCRIPTS_DIR=`pwd`
 cd $BASE_DIR/sigasi/csc_fed
-source /opt/Xilinx/Vivado/2016.3/settings64.sh
+source /opt/Xilinx/Vivado/2017.2/settings64.sh
 #generate a list of files in CSV format
 vivado -mode batch -source $HOME/programs/dev/sigasi/SigasiProjectCreator/convertVivadoProjectToCsv.tcl $SCRIPTS_DIR/../ctp7/work_dir/csc_fed.xpr
 

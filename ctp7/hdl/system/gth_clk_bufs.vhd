@@ -64,6 +64,9 @@ architecture gth_clk_bufs_arch of gth_clk_bufs is
   signal s_gth_1p6g_txusrclk        : std_logic;
   signal s_gth_1p6g_txoutclk        : std_logic;
 
+  signal s_gth_1p25g_txusrclk       : std_logic;
+  signal s_gth_1p25g_txoutclk       : std_logic;
+
   signal s_gth_3p2g_txusrclk        : std_logic;
   signal s_gth_3p2g_txoutclk        : std_logic;
   
@@ -147,6 +150,27 @@ begin
 
     end generate;
   
+    -- 1.25Gbs link with elastic buffers and clock correction (RXUSRCLK = master TXUSRCLK)
+    gen_gth_1p25g_txuserclk : if c_gth_config_arr(n).gth_link_type = gth_1p25g_8b10b_buf generate
+
+      gen_gth_1p25g_txuserclk_master : if c_gth_config_arr(n).gth_txclk_out_master = true generate
+
+        s_gth_1p25g_txoutclk <= gth_gt_clk_out_arr_i(n).txoutclk;
+
+        i_bufg_1p25g_tx_outclk : BUFG
+        port map
+        (
+          I => s_gth_1p25g_txoutclk,
+          O => s_gth_1p25g_txusrclk
+        );
+
+      end generate;
+
+      clk_gth_tx_usrclk_arr_o(n) <= s_gth_1p25g_txusrclk;
+      clk_gth_rx_usrclk_arr_o(n) <= s_gth_1p25g_txusrclk;
+
+    end generate;
+
     -- 3.2Gbs link with no elastic buffers (use RX recovered clocks on BUFHs)
     gen_gth_3p2g_txuserclk : if c_gth_config_arr(n).gth_link_type = gth_3p2g_8b10b_nobuf generate
 

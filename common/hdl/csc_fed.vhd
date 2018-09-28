@@ -233,4 +233,22 @@ begin
             ipb_mosi_i             => ipb_mosi_arr_i(C_IPB_SLV.links)
         );
 
+    --================================--
+    -- Tests
+    --================================--
+
+    i_csc_tests : entity work.csc_tests
+        port map(
+            reset_i           => reset,
+            ttc_clk_i         => ttc_clocks,
+            ttc_cmds_i        => ttc_cmd,
+            gbe_clk_i         => csc_spy_usrclk_i,
+            gbe_tx_data_o     => csc_spy_tx_data_o,
+            gbe_test_enable_o => open,
+            ipb_reset_i       => ipb_reset_i,
+            ipb_clk_i         => ipb_clk_i,
+            ipb_miso_o        => ipb_miso_arr(C_IPB_SLV.tests),
+            ipb_mosi_i        => ipb_mosi_arr_i(C_IPB_SLV.tests)
+        );
+
 end csc_fed_arch;
