@@ -657,6 +657,10 @@
         <node id="ENABLE" address="0x00000000" permission="rw" mask="0x00000001"/>
         <node id="PUSH_GBE_DATA" address="0x00000001" permission="w" mask="0x0003ffff"/>
         <node id="START_TRANSMIT" address="0x00000002" permission="w" mask="0x80000000"/>
+        <node id="BUSY" address="0x00000003" permission="r" mask="0x00000001"/>
+        <node id="EMPTY" address="0x00000003" permission="r" mask="0x00000002"/>
+        <node id="MANUAL_READ_ENABLE" address="0x00000004" permission="rw" mask="0x00000001"/>
+        <node id="MANUAL_READ" address="0x00000005" permission="r" mask="0x0003ffff"/>
       </node>
     </node>
   </node>

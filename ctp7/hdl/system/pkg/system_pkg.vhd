@@ -56,14 +56,14 @@ package system_package is
     (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 10
     (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 11
 
-    (gth_1p25g_8b10b_buf, TRUE),                  -- GTH FW Ch 12
-    (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 13
-    (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 14
-    (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 15
-    (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 16
-    (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 17
-    (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 18
-    (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 19
+    (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 12
+    (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 13
+    (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 14
+    (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 15
+    (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 16
+    (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 17
+    (gth_1p6g_8b10b_buf, false),                  -- GTH FW Ch 18
+    (gth_1p25g_8b10b_buf, TRUE),                  -- GTH FW Ch 19
     (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 20
     (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 21
     (gth_1p25g_8b10b_buf, false),                  -- GTH FW Ch 22

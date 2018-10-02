@@ -1,4 +1,5 @@
 from utils import *
+from data_processing_utils import *
 import signal
 import sys
 import os
@@ -88,33 +89,6 @@ def cfedReadNextEvent(file):
             break
         word = int(line[2:], 16)
         words.append(word)
-
-    return words
-
-def dduReadEvent(file, eventIdx):
-
-    words = []
-    word = 0
-    lastWord = 0
-    # look for beginning of the event with requested index
-    while ((word & 0xffffffffffff0000) != 0x8000000180000000) or (lastWord & 0xf000000000000000 != 0x5000000000000000) or ((lastWord >> 32) & 0xffffff != eventIdx):
-        lastWord = word
-        wordStr = file.read(8)
-        if (wordStr == ''):
-            return words
-        word = struct.unpack("Q", wordStr)[0]
-
-    words.append(lastWord)
-    words.append(word)
-
-    #read the current event until the DDU trailer2
-    while (word != 0x8000ffff80008000):
-        word = struct.unpack("Q", file.read(8))[0]
-        words.append(word)
-
-    # read the last two ddu trailer words
-    words.append(struct.unpack("Q", file.read(8))[0])
-    words.append(struct.unpack("Q", file.read(8))[0])
 
     return words
 

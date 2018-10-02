@@ -37,6 +37,17 @@ def hexPadded64(number):
     else:
         return "{0:#0{1}x}".format(number, 18)
 
+def hexPadded(number, numBytes, include0x = True):
+    if number is None:
+        return 'None'
+    else:
+        length = 2 + numBytes * 2
+        formatStr = "{0:#0{1}x}"
+        if not include0x:
+            length -= 2
+            formatStr = "{0:0{1}x}"
+        return formatStr.format(number, length)
+
 def binary(number, length):
     if number is None:
         return 'None'

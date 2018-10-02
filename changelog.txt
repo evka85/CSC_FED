@@ -73,3 +73,24 @@ Change the input processor to process data on each 16bit arrival instead of just
 --------------------
 
 Added a GbE spy link for local DAQ (only an MGT is now instantiated, an ILA on RX is added, and a test eth packet can be sent out)
+
+--------------------
+----   1.1.3    ----
+---- 2018-10-02 ----
+--------------------
+
+Made the GbE TX test FIFO larger (16384 deep) to accomodate sending out large CSC events, even multi-packet ones in one go
+
+--------------------
+----   1.1.4    ----
+---- 2018-10-02 ----
+--------------------
+
+Added a BUSY and FIFO empty flags readable through registers in the GbE TX test module. These are useful to check if the module is ready for a new packet injection.
+
+--------------------
+----   1.1.5    ----
+---- 2018-10-02 ----
+--------------------
+
+Manual reading of the GbE TX FIFO added

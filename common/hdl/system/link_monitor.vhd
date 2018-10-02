@@ -322,9 +322,18 @@ begin
     regs_addresses(34)(REG_LINKS_ADDRESS_MSB downto REG_LINKS_ADDRESS_LSB) <= '0' & x"0c0";
     regs_addresses(35)(REG_LINKS_ADDRESS_MSB downto REG_LINKS_ADDRESS_LSB) <= '0' & x"0c1";
     regs_addresses(36)(REG_LINKS_ADDRESS_MSB downto REG_LINKS_ADDRESS_LSB) <= '0' & x"0c2";
-    regs_addresses(37)(REG_LINKS_ADDRESS_MSB downto REG_LINKS_ADDRESS_LSB) <= '0' & x"a00";
-    regs_addresses(38)(REG_LINKS_ADDRESS_MSB downto REG_LINKS_ADDRESS_LSB) <= '0' & x"a01";
-    regs_addresses(39)(REG_LINKS_ADDRESS_MSB downto REG_LINKS_ADDRESS_LSB) <= '0' & x"a02";
+    regs_addresses(37)(REG_LINKS_ADDRESS_MSB downto REG_LINKS_ADDRESS_LSB) <= '0' & x"0d0";
+    regs_addresses(38)(REG_LINKS_ADDRESS_MSB downto REG_LINKS_ADDRESS_LSB) <= '0' & x"0d1";
+    regs_addresses(39)(REG_LINKS_ADDRESS_MSB downto REG_LINKS_ADDRESS_LSB) <= '0' & x"0d2";
+    regs_addresses(40)(REG_LINKS_ADDRESS_MSB downto REG_LINKS_ADDRESS_LSB) <= '0' & x"0e0";
+    regs_addresses(41)(REG_LINKS_ADDRESS_MSB downto REG_LINKS_ADDRESS_LSB) <= '0' & x"0e1";
+    regs_addresses(42)(REG_LINKS_ADDRESS_MSB downto REG_LINKS_ADDRESS_LSB) <= '0' & x"0e2";
+    regs_addresses(43)(REG_LINKS_ADDRESS_MSB downto REG_LINKS_ADDRESS_LSB) <= '0' & x"0f0";
+    regs_addresses(44)(REG_LINKS_ADDRESS_MSB downto REG_LINKS_ADDRESS_LSB) <= '0' & x"0f1";
+    regs_addresses(45)(REG_LINKS_ADDRESS_MSB downto REG_LINKS_ADDRESS_LSB) <= '0' & x"0f2";
+    regs_addresses(46)(REG_LINKS_ADDRESS_MSB downto REG_LINKS_ADDRESS_LSB) <= '0' & x"a00";
+    regs_addresses(47)(REG_LINKS_ADDRESS_MSB downto REG_LINKS_ADDRESS_LSB) <= '0' & x"a01";
+    regs_addresses(48)(REG_LINKS_ADDRESS_MSB downto REG_LINKS_ADDRESS_LSB) <= '0' & x"a02";
 
     -- Connect read signals
     regs_read_arr(1)(REG_LINKS_DMB0_MGT_BUF_OVF_CNT_MSB downto REG_LINKS_DMB0_MGT_BUF_OVF_CNT_LSB) <= dmb_mgt_buf_ovf_arr(0);
@@ -399,12 +408,30 @@ begin
     regs_read_arr(35)(REG_LINKS_DMB11_CLK_CORR_DROP_CNT_MSB downto REG_LINKS_DMB11_CLK_CORR_DROP_CNT_LSB) <= dmb_clk_corr_drop_arr(11);
     regs_read_arr(36)(REG_LINKS_DMB11_NOT_IN_TABLE_CNT_MSB downto REG_LINKS_DMB11_NOT_IN_TABLE_CNT_LSB) <= dmb_not_in_table_arr(11);
     regs_read_arr(36)(REG_LINKS_DMB11_DISPERR_CNT_MSB downto REG_LINKS_DMB11_DISPERR_CNT_LSB) <= dmb_disperr_arr(11);
-    regs_read_arr(37)(REG_LINKS_SPY_MGT_BUF_OVF_CNT_MSB downto REG_LINKS_SPY_MGT_BUF_OVF_CNT_LSB) <= spy_mgt_buf_ovf;
-    regs_read_arr(37)(REG_LINKS_SPY_MGT_BUF_UNF_CNT_MSB downto REG_LINKS_SPY_MGT_BUF_UNF_CNT_LSB) <= spy_mgt_buf_unf;
-    regs_read_arr(38)(REG_LINKS_SPY_CLK_CORR_ADD_CNT_MSB downto REG_LINKS_SPY_CLK_CORR_ADD_CNT_LSB) <= spy_clk_corr_add;
-    regs_read_arr(38)(REG_LINKS_SPY_CLK_CORR_DROP_CNT_MSB downto REG_LINKS_SPY_CLK_CORR_DROP_CNT_LSB) <= spy_clk_corr_drop;
-    regs_read_arr(39)(REG_LINKS_SPY_NOT_IN_TABLE_CNT_MSB downto REG_LINKS_SPY_NOT_IN_TABLE_CNT_LSB) <= spy_not_in_table;
-    regs_read_arr(39)(REG_LINKS_SPY_DISPERR_CNT_MSB downto REG_LINKS_SPY_DISPERR_CNT_LSB) <= spy_disperr;
+    regs_read_arr(37)(REG_LINKS_DMB12_MGT_BUF_OVF_CNT_MSB downto REG_LINKS_DMB12_MGT_BUF_OVF_CNT_LSB) <= dmb_mgt_buf_ovf_arr(12);
+    regs_read_arr(37)(REG_LINKS_DMB12_MGT_BUF_UNF_CNT_MSB downto REG_LINKS_DMB12_MGT_BUF_UNF_CNT_LSB) <= dmb_mgt_buf_unf_arr(12);
+    regs_read_arr(38)(REG_LINKS_DMB12_CLK_CORR_ADD_CNT_MSB downto REG_LINKS_DMB12_CLK_CORR_ADD_CNT_LSB) <= dmb_clk_corr_add_arr(12);
+    regs_read_arr(38)(REG_LINKS_DMB12_CLK_CORR_DROP_CNT_MSB downto REG_LINKS_DMB12_CLK_CORR_DROP_CNT_LSB) <= dmb_clk_corr_drop_arr(12);
+    regs_read_arr(39)(REG_LINKS_DMB12_NOT_IN_TABLE_CNT_MSB downto REG_LINKS_DMB12_NOT_IN_TABLE_CNT_LSB) <= dmb_not_in_table_arr(12);
+    regs_read_arr(39)(REG_LINKS_DMB12_DISPERR_CNT_MSB downto REG_LINKS_DMB12_DISPERR_CNT_LSB) <= dmb_disperr_arr(12);
+    regs_read_arr(40)(REG_LINKS_DMB13_MGT_BUF_OVF_CNT_MSB downto REG_LINKS_DMB13_MGT_BUF_OVF_CNT_LSB) <= dmb_mgt_buf_ovf_arr(13);
+    regs_read_arr(40)(REG_LINKS_DMB13_MGT_BUF_UNF_CNT_MSB downto REG_LINKS_DMB13_MGT_BUF_UNF_CNT_LSB) <= dmb_mgt_buf_unf_arr(13);
+    regs_read_arr(41)(REG_LINKS_DMB13_CLK_CORR_ADD_CNT_MSB downto REG_LINKS_DMB13_CLK_CORR_ADD_CNT_LSB) <= dmb_clk_corr_add_arr(13);
+    regs_read_arr(41)(REG_LINKS_DMB13_CLK_CORR_DROP_CNT_MSB downto REG_LINKS_DMB13_CLK_CORR_DROP_CNT_LSB) <= dmb_clk_corr_drop_arr(13);
+    regs_read_arr(42)(REG_LINKS_DMB13_NOT_IN_TABLE_CNT_MSB downto REG_LINKS_DMB13_NOT_IN_TABLE_CNT_LSB) <= dmb_not_in_table_arr(13);
+    regs_read_arr(42)(REG_LINKS_DMB13_DISPERR_CNT_MSB downto REG_LINKS_DMB13_DISPERR_CNT_LSB) <= dmb_disperr_arr(13);
+    regs_read_arr(43)(REG_LINKS_DMB14_MGT_BUF_OVF_CNT_MSB downto REG_LINKS_DMB14_MGT_BUF_OVF_CNT_LSB) <= dmb_mgt_buf_ovf_arr(14);
+    regs_read_arr(43)(REG_LINKS_DMB14_MGT_BUF_UNF_CNT_MSB downto REG_LINKS_DMB14_MGT_BUF_UNF_CNT_LSB) <= dmb_mgt_buf_unf_arr(14);
+    regs_read_arr(44)(REG_LINKS_DMB14_CLK_CORR_ADD_CNT_MSB downto REG_LINKS_DMB14_CLK_CORR_ADD_CNT_LSB) <= dmb_clk_corr_add_arr(14);
+    regs_read_arr(44)(REG_LINKS_DMB14_CLK_CORR_DROP_CNT_MSB downto REG_LINKS_DMB14_CLK_CORR_DROP_CNT_LSB) <= dmb_clk_corr_drop_arr(14);
+    regs_read_arr(45)(REG_LINKS_DMB14_NOT_IN_TABLE_CNT_MSB downto REG_LINKS_DMB14_NOT_IN_TABLE_CNT_LSB) <= dmb_not_in_table_arr(14);
+    regs_read_arr(45)(REG_LINKS_DMB14_DISPERR_CNT_MSB downto REG_LINKS_DMB14_DISPERR_CNT_LSB) <= dmb_disperr_arr(14);
+    regs_read_arr(46)(REG_LINKS_SPY_MGT_BUF_OVF_CNT_MSB downto REG_LINKS_SPY_MGT_BUF_OVF_CNT_LSB) <= spy_mgt_buf_ovf;
+    regs_read_arr(46)(REG_LINKS_SPY_MGT_BUF_UNF_CNT_MSB downto REG_LINKS_SPY_MGT_BUF_UNF_CNT_LSB) <= spy_mgt_buf_unf;
+    regs_read_arr(47)(REG_LINKS_SPY_CLK_CORR_ADD_CNT_MSB downto REG_LINKS_SPY_CLK_CORR_ADD_CNT_LSB) <= spy_clk_corr_add;
+    regs_read_arr(47)(REG_LINKS_SPY_CLK_CORR_DROP_CNT_MSB downto REG_LINKS_SPY_CLK_CORR_DROP_CNT_LSB) <= spy_clk_corr_drop;
+    regs_read_arr(48)(REG_LINKS_SPY_NOT_IN_TABLE_CNT_MSB downto REG_LINKS_SPY_NOT_IN_TABLE_CNT_LSB) <= spy_not_in_table;
+    regs_read_arr(48)(REG_LINKS_SPY_DISPERR_CNT_MSB downto REG_LINKS_SPY_DISPERR_CNT_LSB) <= spy_disperr;
 
     -- Connect write signals
 
