@@ -29,6 +29,8 @@ architecture cross_domain_pulse_arch of cross_domain_pulse is
     signal pulse_in_last    : std_logic := '0';
     signal pulse_req        : std_logic := '0';
     signal pulse_ack        : std_logic := '0';
+    signal pulse_req_sync   : std_logic := '0';
+    signal pulse_ack_sync   : std_logic := '0';
     signal pulse_sent       : std_logic := '0';
     
 begin
@@ -57,7 +59,7 @@ begin
                         pulse_req <= '0';
                         busy_o <= '0';
                     end if;
-                elsif (pulse_ack = '1') then
+                elsif (pulse_ack_sync = '1') then
                     pulse_req <= '0';
                     busy_o <= '0';
                 else
@@ -77,7 +79,7 @@ begin
                 pulse_sent <= '0';
                 pulse_o <= '0';
             else
-                if (pulse_req = '1') then
+                if (pulse_req_sync = '1') then
                     pulse_ack <= '1';
                     if (pulse_sent = '0') then
                         pulse_o <= '1';
@@ -95,5 +97,25 @@ begin
         end if;
     end process;
     
+    -- some synchronizers for the handshake signals
+    i_pulse_req_sync : entity work.synchronizer
+        generic map(
+            N_STAGES => 2
+        )
+        port map(
+            async_i => pulse_req,
+            clk_i   => out_clk_i,
+            sync_o  => pulse_req_sync
+        );
+
+    i_pulse_ack_sync : entity work.synchronizer
+        generic map(
+            N_STAGES => 2
+        )
+        port map(
+            async_i => pulse_ack,
+            clk_i   => out_clk_i,
+            sync_o  => pulse_ack_sync
+        );
 
 end cross_domain_pulse_arch;

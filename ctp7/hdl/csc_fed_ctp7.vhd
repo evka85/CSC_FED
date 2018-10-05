@@ -281,10 +281,7 @@ begin
             daqlink_clk_i           => clk_50,
             daqlink_clk_locked_i    => '1',
             daq_to_daqlink_o        => daq_to_daqlink,
-            daqlink_to_daq_i        => daqlink_to_daq,
-            
-            -- Board serial number
-            board_id_i              => x"cfed"
+            daqlink_to_daq_i        => daqlink_to_daq
         );
 
     -- GTH mapping to CSC links (for now only single link DMBs are supported)

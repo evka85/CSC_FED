@@ -28,7 +28,7 @@ port(
     -- Reset
     reset_i                     : in  std_logic;
 
-    -- Clocks
+    -- DAQ clock
     daq_clk_i                   : in  std_logic;
     daq_clk_locked_i            : in  std_logic;
 
@@ -46,6 +46,10 @@ port(
     input_clk_arr_i             : in std_logic_vector(g_NUM_OF_DMBs - 1 downto 0);
     input_link_arr_i            : in t_gt_8b10b_rx_data_arr(g_NUM_OF_DMBs - 1 downto 0);
     
+    -- Spy
+    spy_clk_i                   : in  std_logic;
+    spy_link_o                  : out t_gt_8b10b_tx_data;
+    
     -- IPbus
     ipb_reset_i                 : in  std_logic;
     ipb_clk_i                   : in  std_logic;
@@ -53,7 +57,7 @@ port(
 	ipb_miso_o                  : out ipb_rbus;
     
     -- Other
-    board_sn_i                  : in  std_logic_vector(15 downto 0); -- board serial ID, needed for the header to AMC13
+    board_id_i                  : in  std_logic_vector(15 downto 0); -- board ID
     tts_ready_o                 : out std_logic
     
 );
@@ -80,39 +84,56 @@ architecture Behavioral of daq is
             valid         : out std_logic;
             underflow     : out std_logic;
             prog_full     : out std_logic;
-            rd_data_count : OUT std_logic_vector(12 DOWNTO 0)
+            rd_data_count : out std_logic_vector(12 downto 0)
         );
     end component daq_l1a_fifo;  
 
     component daq_output_fifo
         port(
-            clk           : IN  STD_LOGIC;
-            rst           : IN  STD_LOGIC;
-            din           : IN  STD_LOGIC_VECTOR(65 DOWNTO 0);
-            wr_en         : IN  STD_LOGIC;
-            rd_en         : IN  STD_LOGIC;
-            dout          : OUT STD_LOGIC_VECTOR(65 DOWNTO 0);
-            full          : OUT STD_LOGIC;
-            empty         : OUT STD_LOGIC;
-            valid         : OUT STD_LOGIC;
-            prog_full     : OUT STD_LOGIC;
-            data_count    : OUT STD_LOGIC_VECTOR(12 DOWNTO 0)
+            clk           : in  std_logic;
+            rst           : in  std_logic;
+            din           : in  std_logic_vector(65 downto 0);
+            wr_en         : in  std_logic;
+            rd_en         : in  std_logic;
+            dout          : out std_logic_vector(65 downto 0);
+            full          : out std_logic;
+            empty         : out std_logic;
+            valid         : out std_logic;
+            prog_full     : out std_logic;
+            data_count    : out std_logic_vector(12 downto 0)
         );
     end component;
 
     component daq_last_event_fifo
         port(
-            rst      : IN  STD_LOGIC;
-            wr_clk   : IN  STD_LOGIC;
-            rd_clk   : IN  STD_LOGIC;
-            din      : IN  STD_LOGIC_VECTOR(63 DOWNTO 0);
-            wr_en    : IN  STD_LOGIC;
-            rd_en    : IN  STD_LOGIC;
-            dout     : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
-            full     : OUT STD_LOGIC;
-            overflow : OUT STD_LOGIC;
-            empty    : OUT STD_LOGIC;
-            valid    : OUT STD_LOGIC
+            rst      : in  std_logic;
+            wr_clk   : in  std_logic;
+            rd_clk   : in  std_logic;
+            din      : in  std_logic_vector(63 downto 0);
+            wr_en    : in  std_logic;
+            rd_en    : in  std_logic;
+            dout     : out std_logic_vector(31 downto 0);
+            full     : out std_logic;
+            overflow : out std_logic;
+            empty    : out std_logic;
+            valid    : out std_logic
+        );
+    end component;
+
+    component daq_spy_fifo
+        port(
+            rst          : in  std_logic;
+            wr_clk       : in  std_logic;
+            rd_clk       : in  std_logic;
+            din          : in  std_logic_vector(63 downto 0);
+            wr_en        : in  std_logic;
+            rd_en        : in  std_logic;
+            dout         : out std_logic_vector(15 downto 0);
+            full         : out std_logic;
+            overflow     : out std_logic;
+            empty        : out std_logic;
+            almost_empty : out std_logic;
+            prog_full    : out std_logic
         );
     end component;
 
@@ -190,7 +211,8 @@ architecture Behavioral of daq is
     signal cnt_sent_events      : unsigned(31 downto 0) := (others => '0');
 
     -- DAQ event sending state machine
-    signal daq_state            : unsigned(3 downto 0) := (others => '0');
+    type t_daq_state is (IDLE, AMC13_HEADER_1, AMC13_HEADER_2, FED_HEADER_1, FED_HEADER_2, FED_HEADER_3, PAYLOAD, FED_TRAILER_1, FED_TRAILER_2, FED_TRAILER_3, AMC13_TRAILER);
+    signal daq_state            : t_daq_state := IDLE;
     signal daq_curr_infifo_word : unsigned(11 downto 0) := (others => '0');
         
     -- IPbus registers
@@ -233,6 +255,20 @@ architecture Behavioral of daq is
     signal last_evt_fifo_empty  : std_logic := '0';
     signal last_evt_fifo_valid  : std_logic := '0';
     
+    -- Spy path
+    signal spy_fifo_wr_en       : std_logic;
+    signal spy_fifo_rd_en       : std_logic;
+    signal spy_fifo_dout        : std_logic_vector(15 downto 0);
+    signal spy_fifo_ovf         : std_logic;
+    signal spy_fifo_empty       : std_logic;
+    signal spy_fifo_aempty      : std_logic;
+    signal spy_fifo_afull       : std_logic;
+    
+    signal spy_gbe_skip_headers : std_logic := '0';
+    signal spy_err_evt_too_big  : std_logic;
+    signal spy_err_eoe_not_found: std_logic;
+    signal spy_word_rate        : std_logic_vector(31 downto 0);
+                
     -- Timeouts
     signal dav_timer            : unsigned(23 downto 0) := (others => '0'); -- TODO: probably don't need this to be so large.. (need to test)
     signal max_dav_timer        : unsigned(23 downto 0) := (others => '0'); -- TODO: probably don't need this to be so large.. (need to test)
@@ -244,6 +280,8 @@ architecture Behavioral of daq is
     
     -- index of the input currently being processed
     signal e_input_idx                : integer range 0 to 23 := 0;
+    -- flag saying if this is the first cycle of payload sending of the current input
+    signal e_payload_first_cycle      : std_logic := '1';
     
     -- word count of the event being sent
     signal e_word_count               : unsigned(19 downto 0) := (others => '0');
@@ -559,6 +597,49 @@ begin
     );
     
     --================================--
+    -- Spy Path
+    --================================--
+    
+    i_spy_fifo : component daq_spy_fifo
+        port map(
+            rst          => reset_daq,
+            wr_clk       => daq_clk_i,
+            rd_clk       => spy_clk_i,
+            din          => daq_event_data(15 downto 0) & daq_event_data(31 downto 16) & daq_event_data(47 downto 32) & daq_event_data(63 downto 48),
+            wr_en        => spy_fifo_wr_en,
+            rd_en        => spy_fifo_rd_en,
+            dout         => spy_fifo_dout,
+            full         => open,
+            overflow     => spy_fifo_ovf,
+            empty        => spy_fifo_empty,
+            almost_empty => spy_fifo_aempty,
+            prog_full    => spy_fifo_afull
+        );
+    
+    i_spy_ethernet_driver : entity work.gbe_tx_driver
+        generic map(
+            g_MAX_PAYLOAD_WORDS   => 3976,
+            g_MIN_PAYLOAD_WORDS   => 32,
+            g_MAX_EVT_WORDS       => 50000,
+            g_NUM_IDLES_SMALL_EVT => 2,
+            g_NUM_IDLES_BIG_EVT   => 7,
+            g_SMALL_EVT_MAX_WORDS => 24
+        )
+        port map(
+            reset_i             => reset_daq,
+            gbe_clk_i           => spy_clk_i,
+            gbe_tx_data_o       => spy_link_o,
+            skip_eth_header_i   => spy_gbe_skip_headers,
+            data_empty_i        => spy_fifo_empty,
+            data_i              => spy_fifo_dout,
+            data_rd_en          => spy_fifo_rd_en,
+            last_valid_word_i   => spy_fifo_aempty,
+            err_event_too_big_o => spy_err_evt_too_big,
+            err_eoe_not_found_o => spy_err_eoe_not_found,
+            word_rate_o         => spy_word_rate
+        );
+    
+    --================================--
     -- Chamber Event Builders
     --================================--
 
@@ -717,7 +798,7 @@ begin
                 end if;
                 
                 -- wait for all L1As to be processed and output buffer drained and then reset everything (resync_done triggers the reset_daq)
-                if (resync_mode = '1' and l1afifo_empty = '1' and daq_state = x"0" and (daqfifo_empty = '1' or ignore_amc13 = '1')) then
+                if (resync_mode = '1' and l1afifo_empty = '1' and daq_state = IDLE and (daqfifo_empty = '1' or ignore_amc13 = '1')) then
                     resync_done <= '1';
                 end if;
             end if;
@@ -734,7 +815,9 @@ begin
         variable e_l1a_id                   : std_logic_vector(23 downto 0) := (others => '0');        
         variable e_bx_id                    : std_logic_vector(11 downto 0) := (others => '0');        
         variable e_orbit_id                 : std_logic_vector(15 downto 0) := (others => '0');        
-
+        
+        variable e_dmb_full                 : std_logic_vector(23 downto 0) := (others => '0');
+        
         -- event chamber info; TODO: convert these to signals (but would require additional state)
         variable e_chmb_l1a_id              : std_logic_vector(23 downto 0) := (others => '0');
         variable e_chmb_bx_id               : std_logic_vector(11 downto 0) := (others => '0');
@@ -757,7 +840,7 @@ begin
         if (rising_edge(daq_clk_i)) then
         
             if (reset_daq = '1') then
-                daq_state <= x"0";
+                daq_state <= IDLE;
                 daq_event_data <= (others => '0');
                 daq_event_header <= '0';
                 daq_event_trailer <= '0';
@@ -772,25 +855,19 @@ begin
                 max_dav_timer <= (others => '0');
                 last_dav_timer <= (others => '0');
                 dav_timeout_flags <= (others => '0');
+                spy_fifo_wr_en <= '0';
             else
             
-                -- state machine for sending data
-                -- state 0: idle
-                -- state 1: send the first AMC header
-                -- state 2: send the second AMC header
-                -- state 3: send the GEM Event header
-                -- state 4: send the GEM Chamber header
-                -- state 5: send the payload
-                -- state 6: send the GEM Chamber trailer
-                -- state 7: send the GEM Event trailer
-                -- state 8: send the AMC trailer
-                if (daq_state = x"0") then
+                -- output formatting state machine
+
+                if (daq_state = IDLE) then
                 
                     -- zero out everything, especially the write enable :)
                     daq_event_data <= (others => '0');
                     daq_event_header <= '0';
                     daq_event_trailer <= '0';
                     daq_event_write_en <= '0';
+                    spy_fifo_wr_en <= '0';
                     e_word_count <= (others => '0');
                     e_input_idx <= 0;
                     
@@ -799,7 +876,7 @@ begin
                     if (l1afifo_empty = '0' and ((input_mask(g_NUM_OF_DMBs - 1 downto 0) and ((not chmb_evtfifos_empty) or dav_timeout_flags(g_NUM_OF_DMBs - 1 downto 0))) = input_mask(g_NUM_OF_DMBs - 1 downto 0))) then
                         if (((daq_ready = '1' and daqfifo_near_full = '0') or (ignore_amc13 = '1')) and daq_enable = '1') then -- everybody ready?.... GO! :)
                             -- start the DAQ state machine
-                            daq_state <= x"1";
+                            daq_state <= AMC13_HEADER_1;
                             
                             -- fetch the data from the L1A FIFO
                             l1afifo_rd_en <= '1';
@@ -833,7 +910,7 @@ begin
                     l1afifo_rd_en <= '0';
                     
                     ----==== send the first AMC header ====----
-                    if (daq_state = x"1") then
+                    if (daq_state = AMC13_HEADER_1) then
                         
                         -- L1A fifo is a first-word-fallthrough fifo, so no need to check for valid (not empty is the condition to get here anyway)
                         
@@ -850,13 +927,14 @@ begin
                         daq_event_header <= '1';
                         daq_event_trailer <= '0';
                         daq_event_write_en <= '1';
+                        spy_fifo_wr_en <= '0';
                         
                         -- move to the next state
                         e_word_count <= e_word_count + 1;
-                        daq_state <= x"2";
+                        daq_state <= AMC13_HEADER_2;
                         
                     ----==== send the second AMC header ====----
-                    elsif (daq_state = x"2") then
+                    elsif (daq_state = AMC13_HEADER_2) then
                     
                         -- calculate the DAV count (I know it's ugly...)
                         e_dav_count <= to_integer(unsigned(e_dav_mask(0 downto 0))) + to_integer(unsigned(e_dav_mask(1 downto 1))) + to_integer(unsigned(e_dav_mask(2 downto 2))) + to_integer(unsigned(e_dav_mask(3 downto 3))) + to_integer(unsigned(e_dav_mask(4 downto 4))) + to_integer(unsigned(e_dav_mask(5 downto 5))) + to_integer(unsigned(e_dav_mask(6 downto 6))) + to_integer(unsigned(e_dav_mask(7 downto 7))) + to_integer(unsigned(e_dav_mask(8 downto 8))) + to_integer(unsigned(e_dav_mask(9 downto 9))) + to_integer(unsigned(e_dav_mask(10 downto 10))) + to_integer(unsigned(e_dav_mask(11 downto 11))) + to_integer(unsigned(e_dav_mask(12 downto 12))) + to_integer(unsigned(e_dav_mask(13 downto 13))) + to_integer(unsigned(e_dav_mask(14 downto 14))) + to_integer(unsigned(e_dav_mask(15 downto 15))) + to_integer(unsigned(e_dav_mask(16 downto 16))) + to_integer(unsigned(e_dav_mask(17 downto 17))) + to_integer(unsigned(e_dav_mask(18 downto 18))) + to_integer(unsigned(e_dav_mask(19 downto 19))) + to_integer(unsigned(e_dav_mask(20 downto 20))) + to_integer(unsigned(e_dav_mask(21 downto 21))) + to_integer(unsigned(e_dav_mask(22 downto 22))) + to_integer(unsigned(e_dav_mask(23 downto 23)));
@@ -866,203 +944,279 @@ begin
                                           run_type &
                                           run_params &
                                           e_orbit_id & 
-                                          board_sn_i;
+                                          board_id_i;
                         daq_event_header <= '0';
                         daq_event_trailer <= '0';
                         daq_event_write_en <= '1';
+                        spy_fifo_wr_en <= '0';
                         
                         -- move to the next state
                         e_word_count <= e_word_count + 1;
-                        daq_state <= x"3";
+                        daq_state <= FED_HEADER_1;
                     
-                    ----==== send the GEM Event header ====----
-                    elsif (daq_state = x"3") then
-                        
-                        -- if this input doesn't have data and we're not at the last input yet, then go to the next input
-                        if ((e_input_idx < g_NUM_OF_DMBs - 1) and (e_dav_mask(e_input_idx) = '0')) then 
-                        
-                            daq_event_write_en <= '0';
-                            e_input_idx <= e_input_idx + 1;
-                            
-                        else
-
-                            -- send the data
-                            daq_event_data <= e_dav_mask & -- DAV mask
-                                              -- buffer status (set if we've ever had a buffer overflow)
-                                              x"000000" & -- TODO: implement buffer status flag
-                                              --(err_event_too_big or e_chmb_evtfifo_full or e_chmb_infifo_underflow or e_chmb_infifo_full) &
-                                              std_logic_vector(to_unsigned(e_dav_count, 5)) &   -- DAV count
-                                              -- GLIB status
-                                              "0000000" & -- Not used yet
-                                              tts_state;
-                            daq_event_header <= '0';
-                            daq_event_trailer <= '0';
-                            daq_event_write_en <= '1';
-                            e_word_count <= e_word_count + 1;
-                            
-                            -- if we have data then read the event fifo and send the chamber data
-                            if (e_dav_mask(e_input_idx) = '1') then
-                            
-                                -- read the first chamber event fifo
-                                chmb_evtfifos_rd_en(e_input_idx) <= '1';
-
-                                -- move to the next state
-                                daq_state <= x"4";
-                            
-                            -- no data on this input - skip to event trailer                            
-                            else
-                            
-                                daq_state <= x"7";
-                                
-                            end if;
-                        
-                        end if;
+                    ----==== send the FED header #1 ====----
+                    elsif (daq_state = FED_HEADER_1) then
                     
-                    ----==== send the GEM Chamber header ====----
-                    elsif (daq_state = x"4") then
-                    
-                        -- reset the read enable
-                        chmb_evtfifos_rd_en(e_input_idx) <= '0';
-                        
-                        -- this is a first-word-fallthrough fifo, so no need to check valid (and risk getting stuck here)
-                        e_chmb_l1a_id                       := chamber_evtfifos(e_input_idx).dout(59 downto 36);
-                        e_chmb_bx_id                        := chamber_evtfifos(e_input_idx).dout(35 downto 24);
-                        e_chmb_payload_size(11 downto 0)    := unsigned(chamber_evtfifos(e_input_idx).dout(23 downto 12));
-                        e_chmb_evtfifo_afull                := chamber_evtfifos(e_input_idx).dout(11);
-                        e_chmb_evtfifo_full                 := chamber_evtfifos(e_input_idx).dout(10);
-                        e_chmb_infifo_full                  := chamber_evtfifos(e_input_idx).dout(9);
-                        e_chmb_evtfifo_near_full            := chamber_evtfifos(e_input_idx).dout(8);
-                        e_chmb_infifo_near_full             := chamber_evtfifos(e_input_idx).dout(7);
-                        e_chmb_infifo_underflow             := chamber_evtfifos(e_input_idx).dout(6);
-                        e_chmb_evt_too_big                  := chamber_evtfifos(e_input_idx).dout(5);
-                        e_chmb_64bit_misaligned             := chamber_evtfifos(e_input_idx).dout(4);
-                        e_chmb_evt_bigger_24                := chamber_evtfifos(e_input_idx).dout(3);
-                        e_chmb_mixed_oh_bc                  := chamber_evtfifos(e_input_idx).dout(2);
-                        e_chmb_mixed_vfat_bc                := chamber_evtfifos(e_input_idx).dout(1);
-                        e_chmb_mixed_vfat_ec                := chamber_evtfifos(e_input_idx).dout(0);
-                        
                         -- send the data
-                        daq_event_data <= x"000000" & -- Zero suppression flags
-                                          std_logic_vector(to_unsigned(e_input_idx, 5)) &    -- Input ID
-                                          -- OH word count
-                                          std_logic_vector(e_chmb_payload_size(11 downto 0)) &
-                                          -- input status
-                                          e_chmb_evtfifo_full &
-                                          e_chmb_infifo_full &
-                                          err_l1afifo_full &
-                                          e_chmb_evt_too_big &
-                                          e_chmb_evtfifo_near_full &
-                                          e_chmb_infifo_near_full &
-                                          l1afifo_near_full &
-                                          e_chmb_evt_bigger_24 &
-                                          e_chmb_64bit_misaligned &
-                                          "0" & -- OOS GLIB-VFAT
-                                          "0" & -- OOS GLIB-OH
-                                          "0" & -- GLIB-VFAT BX mismatch
-                                          "0" & -- GLIB-OH BX mismatch
-                                          x"00" & "00"; -- Not used
-
+                        daq_event_data <= x"50" &
+                                          e_l1a_id &
+                                          e_bx_id &
+                                          board_id_i(11 downto 0) &
+                                          C_DAQ_FORMAT_VERSION &
+                                          x"0";
                         daq_event_header <= '0';
                         daq_event_trailer <= '0';
                         daq_event_write_en <= '1';
-                        
-                        -- read a word from the input fifo
-                        chmb_infifos_rd_en(e_input_idx) <= '1';
-
-                        -- we already start reading the first word here, so decrement by 1 - the word count is guaranteed to be at least 1
-                        daq_curr_infifo_word <= unsigned(chamber_evtfifos(e_input_idx).dout(23 downto 12)) - 1;
+                        spy_fifo_wr_en <= '1';
                         
                         -- move to the next state
                         e_word_count <= e_word_count + 1;
-                        daq_state <= x"5";
+                        daq_state <= FED_HEADER_2;                        
+
+                    ----==== send the FED header #2 ====----
+                    elsif (daq_state = FED_HEADER_2) then
                         
-                    ----==== send the payload ====----
-                    elsif (daq_state = x"5") then
+                        e_dmb_full(tts_chmb_critical_arr'left downto tts_chmb_critical_arr'right) := tts_chmb_critical_arr; -- TODO: should be synced to the DAQ clock!
                     
-                        if (daq_curr_infifo_word = 0) then
-                            chmb_infifos_rd_en(e_input_idx) <= '0';
-                            daq_state <= x"6";
-                        else
-                            chmb_infifos_rd_en(e_input_idx) <= '1';
-                            daq_curr_infifo_word <= daq_curr_infifo_word - 1;
-                        end if;
-                    
-                        -- send the data!  (don't check for valid because it's a first-word-fallthrough fifo, also don't check for underflows - this is caught and reported outside of this process)
-                        daq_event_data <= chamber_infifos(e_input_idx).dout;
+                        -- send the data
+                        daq_event_data <= x"800000018000" &
+                                          e_dmb_full(15 downto 0);
                         daq_event_header <= '0';
                         daq_event_trailer <= '0';
                         daq_event_write_en <= '1';
+                        spy_fifo_wr_en <= '1';
+                        
+                        -- move to the next state
                         e_word_count <= e_word_count + 1;
+                        daq_state <= FED_HEADER_3;
 
-                    ----==== send the GEM Chamber trailer ====----
-                    elsif (daq_state = x"6") then
-                        
-                        -- increment the input index if it hasn't maxed out yet
-                        if (e_input_idx < g_NUM_OF_DMBs - 1) then
-                            e_input_idx <= e_input_idx + 1;
-                        end if;
-                        
-                        -- if we have data for the next input or if we've reached the last input
-                        if ((e_input_idx >= g_NUM_OF_DMBs - 1) or (e_dav_mask(e_input_idx + 1) = '1')) then
-                        
-                            -- send the data
-                            daq_event_data <= x"0000" & -- OH CRC
-                                              std_logic_vector(e_chmb_payload_size(11 downto 0)) & -- OH word count
-                                              -- GEM chamber status
-                                              err_evtfifo_underflow &
-                                              "0" &  -- stuck data
-                                              "00" & x"00000000";
-                            daq_event_header <= '0';
-                            daq_event_trailer <= '0';
-                            daq_event_write_en <= '1';
-                            e_word_count <= e_word_count + 1;
-                                
-                            -- if we have data for the next input then read the infifo and go to chamber data sending
-                            if (e_dav_mask(e_input_idx + 1) = '1') then
-                                chmb_evtfifos_rd_en(e_input_idx + 1) <= '1';
-                                daq_state <= x"4";                            
-                            else -- if next input doesn't have data we can only get here if we're at the last input, so move to the event trailer
-                                daq_state <= x"7";
-                            end if;
-                         
-                        else
-                        
+                    ----==== send the FED header #2 ====----
+                    elsif (daq_state = FED_HEADER_3) then
+
+                        -- send the data
+                        daq_event_data <= input_mask(15 downto 0) & -- which DDU Fiber Inputs have a "Live" fiber (High True, 1 Fiber Input per CSC) 
+                                          err_daqfifo_full & -- DDU Output-Limited Buffer Overflow occurred
+                                          daq_almost_full & -- DAQ Wait was asserted by S-Link or DCC TODO: use a latched flag here
+                                          '0' & -- Link Full (LFF) was asserted by S-Link
+                                          '0' & -- DDU S-Link Never Ready
+                                          '0' & -- GbE/SPY FIFO Overflow occurred TODO: implement this
+                                          '0' & -- GbE/SPY Event was skipped to prevent overflow TODO: implement this
+                                          '0' & -- GbE/SPY FIFO Always Empty TODO: implement this
+                                          '0' & -- Gbe/SPY Fiber Connection Error occurred
+                                          (tts_critical_error and daq_almost_full)  & -- DDU Buffer Overflow caused by DAQ Wait
+                                          err_daqfifo_full & -- DAQ Wait is set by DCC/S-Link TODO: transfer to DAQ clk
+                                          err_daqfifo_full & -- Link Full (LFF) is set by DDU S-Link TODO: transfer to DAQ clk
+                                          (not daq_ready) & --Not Ready is set by DDU S-Link
+                                          '0' & -- GbE/SPY FIFO is Full TODO: implement this
+                                          '0' & -- GbE/SPY Path was Not Enabled for this event TODO: implement this
+                                          '0' & -- GbE/SPY FIFO is Not Empty TODO: implement this
+                                          '0' & -- DCC Link is Not Ready 
+                                          e_dav_mask(15 downto 0) & -- which CSCs have data for this event; one bit allocated per DDU fiber input
+                                          '0' & -- NOT USED
+                                          '0' & -- DDU single event warning *minor format error, fiber/RX error, or the DDU lost it's clock for some time; possible data loss  * consider RESET if this warning continues for consecutive events
+                                          err_l1afifo_full & -- DDU SyncError (bad event, RESET req'd) * Multiple L1A errors or FIFO Full; possible data loss
+                                          '0' & -- DDU detected Fiber Error * change of fiber connection status or No Live Fibers; a hardware problem probably exists
+                                          tts_critical_error & -- DDU detected Critical Error, irrecoverable * OR of all possible "RESET required" cases TODO: transfer to DAQ clk
+                                          '0' & --  DDU detected Single Error (bad event) * OR of all possible "bad" cases at Beginning of Event TODO: figure out what this means
+                                          '0' & -- DDU detected DMB L1A Match Error *the DDU L1A event number match failed for 1 or more CSCs; possible one-time bit error TODO: implement this
+                                          or_reduce(dav_timeout_flags) & -- DDU Timeout Error *data from a CSC never arrived *an unknowable amount of data has been irrevocably lost
+                                          tts_state & -- TODO: should be synced to the DAQ clock
+                                          std_logic_vector(to_unsigned(e_dav_count, 4));
+                        daq_event_header <= '0';
+                        daq_event_trailer <= '0';
+                        daq_event_write_en <= '1';
+                        spy_fifo_wr_en <= '1';                        
+                        e_word_count <= e_word_count + 1;
+                        daq_state <= PAYLOAD;
+                        e_payload_first_cycle <= '1';
+
+                    ----==== send the payload ====----
+                    elsif (daq_state = PAYLOAD) then
+
+                        daq_event_header <= '0';
+                        daq_event_trailer <= '0';
+                                            
+                        -- if there's no data from the current input (or a lone word)
+                        if ((e_dav_mask(e_input_idx) = '0') or ((e_dav_mask(e_input_idx) = '1') and (chamber_evtfifos(e_input_idx).dout(23 downto 12) = x"001"))) then
+                            
+                            e_word_count <= e_word_count;
+                            daq_event_data <= (others => '0');
                             daq_event_write_en <= '0';
+                            spy_fifo_wr_en <= '0';
+                            e_payload_first_cycle <= '1';
+                            
+                            -- make sure to reset the read enable of the previous input if we're not at the first one 
+                            if (e_input_idx > 0) then
+                                chmb_evtfifos_rd_en(e_input_idx - 1) <= '0';
+                                chmb_infifos_rd_en(e_input_idx - 1) <= '0';                            
+                            end if;
+                            
+                            -- pop the event fifo if there's an event there (lone event in this case)
+                            if (e_dav_mask(e_input_idx) = '1') then
+                                chmb_evtfifos_rd_en(e_input_idx) <= '1';
+                                chmb_infifos_rd_en(e_input_idx) <= '1';                            
+                            end if;
+                            
+                            -- if we're not at the last input yet, just go to the next one
+                            if (e_input_idx < g_NUM_OF_DMBs - 1) then
+                                e_input_idx <= e_input_idx + 1;
+                                daq_state <= PAYLOAD;
+                                
+                            -- if we are at the last input, then skip to the trailer                                
+                            else
+                                e_input_idx <= e_input_idx;
+                                daq_state <= FED_TRAILER_1;
+                            
+                            end if;
+                        else
+
+                            -- keep reading the input fifo
+                            chmb_infifos_rd_en(e_input_idx) <= '1';
+                            daq_event_write_en <= '1';
+                            spy_fifo_wr_en <= '1';                        
+                            daq_event_data <= chamber_infifos(e_input_idx).dout;
+                            e_word_count <= e_word_count + 1;
+
+                            -- make sure to reset the read enables of the previous input
+                            if (e_input_idx > 0) then
+                                chmb_evtfifos_rd_en(e_input_idx - 1) <= '0';
+                                chmb_infifos_rd_en(e_input_idx - 1) <= '0';
+                            end if;
+                            
+                            -- if this is the first cycle at this input, take the size here, otherwise just decrease the word countdown
+                            if (e_payload_first_cycle = '1') then
+                                daq_curr_infifo_word <= unsigned(chamber_evtfifos(e_input_idx).dout(23 downto 12)) - 1;
+                                e_payload_first_cycle <= '0';
+                                chmb_evtfifos_rd_en(e_input_idx) <= '0';
+                                daq_state <= PAYLOAD;
+                                e_input_idx <= e_input_idx;
+                            else
+                                daq_curr_infifo_word <= daq_curr_infifo_word - 1;
+                                
+                                -- end of event for this input
+                                if (daq_curr_infifo_word = x"000") then
+                                    chmb_evtfifos_rd_en(e_input_idx) <= '1';
+                                    e_payload_first_cycle <= '1';
+                                    
+                                    if (e_input_idx = g_NUM_OF_DMBs - 1) then
+                                        daq_state <= FED_TRAILER_1;
+                                        e_input_idx <= e_input_idx;
+                                    else
+                                        daq_state <= PAYLOAD;
+                                        e_input_idx <= e_input_idx + 1;
+                                    end if;
+                                -- still sending the current input event
+                                else
+                                    chmb_evtfifos_rd_en(e_input_idx) <= '0';
+                                    e_payload_first_cycle <= '0';
+                                    daq_state <= PAYLOAD;
+                                    e_input_idx <= e_input_idx;
+                                end if;
+                                
+                            end if;
                             
                         end if;
-                        
-                    ----==== send the GEM Event trailer ====----
-                    elsif (daq_state = x"7") then
 
-                        daq_event_data <= dav_timeout_flags & -- Chamber timeout
-                                          -- Event status (hmm)
-                                          x"0" & "000" &
-                                          "0" & -- GLIB OOS (different L1A IDs for different inputs)
-                                          x"000000" &   -- Chamber error flag (hmm)
-                                          -- GLIB status
-                                          daq_almost_full &
-                                          ttc_status_i.mmcm_locked & 
-                                          daq_clk_locked_i & 
-                                          daq_ready &
-                                          ttc_status_i.bc0_status.locked &
-                                          "000";         -- Reserved
+                    ----==== send the FED trailer 1 ====----
+                    elsif (daq_state = FED_TRAILER_1) then
+
+                        chmb_evtfifos_rd_en(e_input_idx) <= '0';
+                        chmb_infifos_rd_en(e_input_idx) <= '0';
+
+                        -- send the data
+                        daq_event_data <= x"8000ffff80008000"; -- unique FED trailer word
                         daq_event_header <= '0';
                         daq_event_trailer <= '0';
                         daq_event_write_en <= '1';
-                        e_word_count <= e_word_count + 1;
-                        daq_state <= x"8";
+                        spy_fifo_wr_en <= '1';                        
                         
+                        -- move to the next state
+                        e_word_count <= e_word_count + 1;
+                        daq_state <= FED_TRAILER_2;
+
+                    ----==== send the FED trailer 2 ====----
+                    elsif (daq_state = FED_TRAILER_2) then
+
+                        -- send the data TODO: implement the missing status flags
+                        daq_event_data <= '0' & -- CSC LCT/DAV Mismatch occurred (bad event) 
+                                          '0' & -- DDU-CFEB L1 Number Mismatch occurred (bad event) 
+                                          '0' & -- No Good DMB CRCs were detected in this Event (perfectly normal empty event or possible bad event?) 
+                                          '0' & -- CFEB Count Error occurred (bad event)
+                                          '0' & --  DDU Bad First Data Word From CSC Error (bad event)
+                                          err_l1afifo_full & -- DDU L1A-FIFO Full Error (RESET req'd) *the DDU L1A-event info FIFO went full; some triggers/events may be lost or garbled
+                                          '0' & -- DDU Data Stuck in FIFO Error
+                                          (not or_reduce(input_mask)) & -- DDU NoLiveFibers Error *no DDU fiber inputs are connected, something is wrong; will cause other errors...
+                                          '0' & -- DDU Special Word Inconsistency Warning (possible bad event?) *a bit-vote failure occured on an input fiber channel
+                                          '0' & -- DDU Input FPGA Error (bad event) 
+                                          daq_almost_full & -- DCC/S-Link Wait is set 
+                                          (not daq_ready) & -- DCC Link is Not Ready
+                                          '0' & -- DDU detected TMB Error (bad event) *TMB trail word not found or TMB L1A, CRC or wordcount inconsistent
+                                          '0' & -- DDU detected ALCT Error (bad event) *ALCT trail word not found or ALCT L1A, CRC or wordcount inconsistent
+                                          '0' & -- DDU detected TMB or ALCT Word Count Error (bad event, RESET?) *TMB/ALCT wordcount inconsistent *if error continues for consecutive events then RESET req'd
+                                          '0' & -- DDU detected TMB or ALCT L1A Number Error (bad event, RESET?) *TMB/ALCT L1A Number mismatch with DDU *if error continues for consecutive events then RESET req'd
+                                          tts_critical_error & -- DDU detected Critical Error, irrecoverable (RESET req'd) *OR of all possible "RESET required" cases
+                                          '0' & -- DDU detected Single Error (bad event) *OR of all possible "bad event" cases
+                                          '0' & -- DDU Single Warning (possible bad event?) *OR of bit55, bit42
+                                          (tts_warning or daq_almost_full) & --  DDU FIFO Near Full Warning or DAQ Wait is set (status only) *OR of all possible "Near Full" cases
+                                          '0' & -- DDU detected Data Alignment Error from 1 or more inputs (bad event) *CSC data violated the 64-bit word boundary
+                                          '0' & -- DDU Clock-DLL Error (may be OK, RESET?) *the DDU lost it's clock for an unknown period of time; some triggers/events/data may be lost
+                                          or_reduce(dav_timeout_flags) & -- DDU detected CSC Error (bad event) *Timeout, DMB CRC, CFEB Sync/Overflow, or missing CFEB data
+                                          '0' & -- DDU Lost In Event Error (bad event, but end was found) *the DDU failed to find an expected control word within the event, NOT fatal
+                                          '0' & -- DDU Lost In Data Error (bad event, RESET req'd) *usally Fatal; DDU checking algorithms are irrevocably lost in the data stream *mis-sequenced data structure, possible that different events were run together *found at least one of the following in the event data stream, all of which are very bad: -Extra CSC_First_Word before CSC_Last_Word -Extra DMB_Header2 before DMB_Last_Word -Lone Word before DMB_Last_Word -Extra TMB/ALCT_Trailer before DMB_Last_Word -Extra DMB_Trailer1 before DMB_Last_Word -DMB_Trailer2 before DMB_Trailer1 Note:  CSC_Last_Word == DMB_Trailer2
+                                          or_reduce(dav_timeout_flags) & -- DDU Timeout Error (bad event, RESET req'd) *data from a fiber input either never started or never finished *an unknowable amount of data has been irrevocably lost
+                                          '0' & -- DDU detected TMB or ALCT CRC Error (bad event, RESET?) *CRC check failed on 1 or more TMB/ALCT; possible one-time bit error *if error continues for consecutive events then RESET req'd
+                                          '0' & -- DDU Multiple Transmit Errors (bad event, RESET req'd) *one bit-vote failure (or Rx Error) has occured on multiple occassions for the same CSC
+                                          (tts_critical_error or tts_out_of_sync) & -- DDU Sync Lost/Buffer Overflow Error (bad event, RESET req'd) *an unknowable amount of data has been irrevocably lost
+                                          '0' & -- DDU detected Fiber Error (hardware configuration change, RESET req'd) *change of connection status on 1 or more DDU fiber inputs; a hardware problem probably exists
+                                          '0' & -- DDU detected DMB or CFEB L1A Match Error (bad event, RESET?) *the DDU L1A event number match failed for 1 or more CSC boards; possible one-time bit error *if error continues for consecutive events then RESET req'd
+                                          '0' & -- DDU detected DMB or CFEB CRC Error (bad event, RESET?) *CRC check failed for ADC data on 1 or more CFEBs; possible one-time bit error *if error continues for consecutive events then RESET req'd
+                                          '0' & -- DMB Full Flag (status only) 
+                                          tts_chmb_critical_arr(14 downto 0) & -- shows which CSCs are in an Error state 
+                                          '0' & tts_chmb_warning_arr(14 downto 0); -- shows which CSCs are in a Warning state
+                        daq_event_header <= '0';
+                        daq_event_trailer <= '0';
+                        daq_event_write_en <= '1';
+                        spy_fifo_wr_en <= '1';                        
+                        
+                        -- move to the next state
+                        e_word_count <= e_word_count + 1;
+                        daq_state <= FED_TRAILER_3;
+
+                    ----==== send the FED trailer 3 ====----
+                    elsif (daq_state = FED_TRAILER_3) then
+
+                        -- send the data
+                        daq_event_data <= x"a0" & 
+                                          x"0" & std_logic_vector(e_word_count - 1) &
+                                          x"0000" & -- CRC TODO: implement the DDU CRC!!
+                                          x"0" &
+                                          tts_critical_error & -- DDU detected Critical Error, irrecoverable (RESET req'd) *OR of all possible "RESET required" cases
+                                          '0' & -- DDU detected Single Error (bad event) *OR of all possible "bad event" cases
+                                          '0' & -- DDU Single Warning (possible bad event?) *OR of bit55, bit42
+                                          (tts_warning or daq_almost_full) & --  DDU FIFO Near Full Warning or DAQ Wait is set (status only) *OR of all possible "Near Full" cases
+                                          tts_state &
+                                          x"0";
+                        daq_event_header <= '0';
+                        daq_event_trailer <= '0';
+                        daq_event_write_en <= '1';
+                        spy_fifo_wr_en <= '1';                        
+                        
+                        -- move to the next state
+                        e_word_count <= e_word_count + 1;
+                        daq_state <= AMC13_TRAILER;
+
                     ----==== send the AMC trailer ====----
-                    elsif (daq_state = x"8") then
+                    elsif (daq_state = AMC13_TRAILER) then
                     
                         -- send the AMC trailer data
                         daq_event_data <= x"00000000" & e_l1a_id(7 downto 0) & x"0" & std_logic_vector(e_word_count + 1);
                         daq_event_header <= '0';
                         daq_event_trailer <= '1';
                         daq_event_write_en <= '1';
+                        spy_fifo_wr_en <= '0';                        
                         
                         -- go back to DAQ idle state
-                        daq_state <= x"0";
+                        daq_state <= IDLE;
                         
                         -- reset things
                         e_word_count <= (others => '0');
@@ -1070,10 +1224,9 @@ begin
                         cnt_sent_events <= cnt_sent_events + 1;
                         dav_timeout_flags <= x"000000";
                         
-                    -- hmm
                     else
                     
-                        daq_state <= x"0";
+                        daq_state <= IDLE;
                         
                     end if;
                     

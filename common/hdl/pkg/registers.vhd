@@ -169,7 +169,7 @@ package registers is
     constant REG_SYSTEM_BOARD_ID_ADDR    : std_logic_vector(12 downto 0) := '0' & x"002";
     constant REG_SYSTEM_BOARD_ID_MSB    : integer := 15;
     constant REG_SYSTEM_BOARD_ID_LSB     : integer := 0;
-    constant REG_SYSTEM_BOARD_ID_DEFAULT : std_logic_vector(15 downto 0) := x"cfed";
+    constant REG_SYSTEM_BOARD_ID_DEFAULT : std_logic_vector(15 downto 0) := x"0347";
 
     constant REG_SYSTEM_BOARD_TYPE_ADDR    : std_logic_vector(12 downto 0) := '0' & x"002";
     constant REG_SYSTEM_BOARD_TYPE_MSB    : integer := 19;

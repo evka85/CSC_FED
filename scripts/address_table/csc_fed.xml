@@ -135,7 +135,7 @@
 
         <node id="BOARD_ID" address="0x2" mask="0x0000ffff" permission="rw"
               description="Board ID that gets embedded in the AMC13 header"
-              fw_signal="board_id" fw_default="0xcfed"/>
+              fw_signal="board_id" fw_default="0x347"/>
         <node id="BOARD_TYPE" address="0x2" mask="0x000f0000" permission="r"
               description="Board type: 1 means CTP7"
               fw_signal="board_type"/>

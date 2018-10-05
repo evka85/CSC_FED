@@ -65,11 +65,7 @@ entity csc_fed is
         daqlink_clk_i           : in  std_logic;
         daqlink_clk_locked_i    : in  std_logic;
         daq_to_daqlink_o        : out t_daq_to_daqlink;
-        daqlink_to_daq_i        : in  t_daqlink_to_daq;
-        
-        -- Board serial number
-        board_id_i              : in std_logic_vector(15 downto 0) -- this gets embedded in the daqlink header, though probably not used anywhere :)
-        
+        daqlink_to_daq_i        : in  t_daqlink_to_daq        
     );
 end csc_fed;
 
@@ -81,20 +77,28 @@ architecture csc_fed_arch of csc_fed is
     -- Signals
     --================================--
 
-    --== General ==--
-    signal reset            : std_logic;
-    signal reset_pwrup      : std_logic;
-    signal ipb_reset        : std_logic;
-    signal pwrup_countdown  : std_logic_vector(31 downto 0) := POWER_UP_RESET_TIME;
+    --== Resets ==--
+    signal reset                : std_logic;
+    signal reset_pwrup          : std_logic;
+    signal ipb_reset            : std_logic;
+    signal pwrup_countdown      : std_logic_vector(31 downto 0) := POWER_UP_RESET_TIME;
 
     --== TTC signals ==--
-    signal ttc_clocks       : t_ttc_clks;
-    signal ttc_cmd          : t_ttc_cmds;
-    signal ttc_counters     : t_ttc_daq_cntrs;
-    signal ttc_status       : t_ttc_status;
+    signal ttc_clocks           : t_ttc_clks;
+    signal ttc_cmd              : t_ttc_cmds;
+    signal ttc_counters         : t_ttc_daq_cntrs;
+    signal ttc_status           : t_ttc_status;
+
+    --== Spy path ==--
+    signal spy_gbe_test_en      : std_logic;
+    signal spy_gbe_test_data    : t_gt_8b10b_tx_data;
+    signal spy_gbe_daq_data     : t_gt_8b10b_tx_data; 
+
+    --== Other ==--
+    signal board_id             : std_logic_vector(15 downto 0);
 
     --== IPbus ==--
-    signal ipb_miso_arr     : ipb_rbus_array(g_NUM_IPB_SLAVES - 1 downto 0) := (others => (ipb_rdata => (others => '0'), ipb_ack => '0', ipb_err => '0'));
+    signal ipb_miso_arr         : ipb_rbus_array(g_NUM_IPB_SLAVES - 1 downto 0) := (others => (ipb_rdata => (others => '0'), ipb_ack => '0', ipb_err => '0'));
 
 begin
 
@@ -108,6 +112,7 @@ begin
     ttc_clocks_o <= ttc_clocks; 
     ipb_miso_arr_o <= ipb_miso_arr;
     led_tts_ready_o <= '1';
+    csc_spy_tx_data_o <= spy_gbe_daq_data when spy_gbe_test_en = '0' else spy_gbe_test_data;
 
     --================================--
     -- Power-on reset  
@@ -174,11 +179,13 @@ begin
             ttc_status_i     => ttc_status,
             input_clk_arr_i  => csc_dmb_rx_usrclk_arr_i,
             input_link_arr_i => csc_dmb_rx_data_arr_i,
+            spy_clk_i        => csc_spy_usrclk_i,
+            spy_link_o       => spy_gbe_daq_data,
             ipb_reset_i      => ipb_reset_i,
             ipb_clk_i        => ipb_clk_i,
             ipb_mosi_i       => ipb_mosi_arr_i(C_IPB_SLV.daq),
             ipb_miso_o       => ipb_miso_arr(C_IPB_SLV.daq),
-            board_sn_i       => board_id_i,
+            board_id_i       => board_id,
             tts_ready_o      => led_tts_ready_o
         );    
 
@@ -195,7 +202,7 @@ begin
             reset_i     => reset,
             ttc_clks_i  => ttc_clocks,
             
-            board_id_o  => open,
+            board_id_o  => board_id,
             
             -- IPbus
             ipb_reset_i => ipb_reset_i,
@@ -243,8 +250,8 @@ begin
             ttc_clk_i         => ttc_clocks,
             ttc_cmds_i        => ttc_cmd,
             gbe_clk_i         => csc_spy_usrclk_i,
-            gbe_tx_data_o     => csc_spy_tx_data_o,
-            gbe_test_enable_o => open,
+            gbe_tx_data_o     => spy_gbe_test_data,
+            gbe_test_enable_o => spy_gbe_test_en,
             ipb_reset_i       => ipb_reset_i,
             ipb_clk_i         => ipb_clk_i,
             ipb_miso_o        => ipb_miso_arr(C_IPB_SLV.tests),

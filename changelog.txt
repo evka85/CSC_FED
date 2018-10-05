@@ -94,3 +94,11 @@ Added a BUSY and FIFO empty flags readable through registers in the GbE TX test 
 --------------------
 
 Manual reading of the GbE TX FIFO added
+
+--------------------
+----   1.2.0    ----
+---- 2018-10-05 ----
+--------------------
+
+DDU data format implemented in the DAQ formatter.
+Spy DAQ output is also implemented.

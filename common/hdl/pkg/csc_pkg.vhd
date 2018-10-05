@@ -8,10 +8,10 @@ package csc_pkg is
     --==  Firmware version  ==--
     --========================-- 
 
-    constant C_FIRMWARE_DATE    : std_logic_vector(31 downto 0) := x"20181002";
+    constant C_FIRMWARE_DATE    : std_logic_vector(31 downto 0) := x"20181004";
     constant C_FIRMWARE_MAJOR   : integer range 0 to 255        := 1;
-    constant C_FIRMWARE_MINOR   : integer range 0 to 255        := 1;
-    constant C_FIRMWARE_BUILD   : integer range 0 to 255        := 5;
+    constant C_FIRMWARE_MINOR   : integer range 0 to 255        := 2;
+    constant C_FIRMWARE_BUILD   : integer range 0 to 255        := 0;
 
     --======================--
     --==      General     ==--
@@ -27,7 +27,7 @@ package csc_pkg is
     --======================-- 
     
     -- DAQ
-    constant C_DAQ_FORMAT_VERSION     : std_logic_vector(3 downto 0)  := x"0";
+    constant C_DAQ_FORMAT_VERSION     : std_logic_vector(3 downto 0)  := x"7";
 
     --============--
     --== Common ==--
