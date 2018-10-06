@@ -30,11 +30,17 @@ architecture Behavioral of tb_spy is
                                                        x"8000", x"8000", x"ffff", x"8000",
                                                        x"0000", x"0000", x"0000", x"2010",
                                                        x"0080", x"3a6d", x"0006", x"a000");
+--    constant PAYLOAD      : t_std16_array(0 to 23) := (x"0000", x"0000", x"0000", x"0000",
+--                                                       x"0000", x"0000", x"0000", x"0000",
+--                                                       x"0000", x"0000", x"0000", x"0000",
+--                                                       x"0000", x"0000", x"0000", x"0000",
+--                                                       x"0000", x"0000", x"0000", x"0000",
+--                                                       x"0000", x"0000", x"0000", x"0000");
     constant PADDING      : t_std16_array(0 to 7)  := (x"ff30", x"ffff", x"ffff", x"ffff",
                                                        x"ffff", x"ffff", x"ffff", x"ffff");
     constant PACKET_CNT   : std_logic_vector(15 downto 0) := x"04cf";
     constant CRC          : t_std16_array(0 to 1)  := (x"30ba", x"e514");
-    constant EOF          : t_std16_array(0 to 1)  := (x"3f7fd", x"1c5bc");
+    constant EOF          : t_std16_array(0 to 1)  := (x"f7fd", x"c5bc");
     
     -- signals
     signal reset        : std_logic;
@@ -86,7 +92,7 @@ begin
     process(clk)
     begin
         if (rising_edge(clk)) then
-            if fifo_rd_en = '1' and payload_idx < PAYLOAD'length then
+            if fifo_rd_en = '1' and payload_idx < PAYLOAD'length - 1 then
                 payload_idx <= payload_idx + 1; 
             end if;
             if payload_idx = PAYLOAD'length - 2 then

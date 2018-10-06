@@ -444,6 +444,7 @@ begin
     -- Event Builder
     --================================--
     process(input_clk_i)
+        variable eb_not_empty_event : std_logic := '0';
     begin
         if (rising_edge(input_clk_i)) then
         
@@ -502,6 +503,12 @@ begin
                 -- event has just ended         
                 if ((eb_event_size /= x"000") and (lp_event_in_progress = '0')) then
                     
+                    if (eb_event_size = x"000001") then
+                        eb_not_empty_event := '0';
+                    else
+                        eb_not_empty_event := '1';
+                    end if;
+                    
                     -- Push to event FIFO
                     if (evtfifo_full = '0') then
                         evtfifo_wr_en <= '1';
@@ -516,7 +523,7 @@ begin
                                        err_infifo_underflow &
                                        eb_event_too_big &
                                        eb_64bit_misaligned & 
-                                       '0' & -- unused for now
+                                       eb_not_empty_event &
                                        '0' & -- unused for now
                                        '0' & -- unused for now
                                        '0';  -- unused for now

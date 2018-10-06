@@ -102,3 +102,31 @@ Manual reading of the GbE TX FIFO added
 
 DDU data format implemented in the DAQ formatter.
 Spy DAQ output is also implemented.
+
+--------------------
+----   1.2.1    ----
+---- 2018-10-05 ----
+--------------------
+
+Fixed an infifo read enable bug in the DAQ (was causing underflows)
+
+--------------------
+----   1.2.2    ----
+---- 2018-10-05 ----
+--------------------
+
+DAQ registers reorganized, and spy registers added.
+
+--------------------
+----   1.2.3    ----
+---- 2018-10-05 ----
+--------------------
+
+Fixed packet counter in the gbe_tx_driver (was incrementing by 2, causing missing packets error on the RUI)
+
+--------------------
+----   1.2.4    ----
+---- 2018-10-05 ----
+--------------------
+
+Implemented optional skipping of empty events in the spy path. Also optimized the DAQ to not waste cycles checking each input if the event is completely empty.

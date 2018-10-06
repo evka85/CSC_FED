@@ -343,6 +343,12 @@ begin
             clkcorrcnt_i    => csc_spy_rx_status.rxclkcorcnt
         );
 
+    i_spy_tx_ila_inst : entity work.gt_tx_link_ila_wrapper
+        port map(
+            clk_i   => csc_spy_usrclk,
+            kchar_i => csc_spy_tx_data.txcharisk(1 downto 0),
+            data_i  => csc_spy_tx_data.txdata(15 downto 0)
+        );
 
 end csc_fed_ctp7_arch;
 

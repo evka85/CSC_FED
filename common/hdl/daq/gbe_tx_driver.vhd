@@ -44,17 +44,26 @@ entity gbe_tx_driver is
         -- status
         err_event_too_big_o     : out std_logic; -- this is asserted if an event exceeding g_MAX_EVT_WORDS was seen since last reset
         err_eoe_not_found_o     : out std_logic; -- this is asserted if the fifo became empty before an end of event was found (latched till reset)
-        word_rate_o             : out std_logic_vector(31 downto 0) -- word rate in Hz (including the ethernet frame words)
+        word_rate_o             : out std_logic_vector(31 downto 0); -- word rate in Hz (including the ethernet frame words)
+        evt_cnt_o               : out std_logic_vector(31 downto 0) -- event count
 
     );
 end gbe_tx_driver;
 
 architecture gbe_tx_driver_arch of gbe_tx_driver is
 
+    component crc32_gbe is
+        port(
+            data_in          : in  std_logic_vector(15 downto 0);
+            crc_en, rst, clk : in  std_logic;
+            crc_reg          : out std_logic_vector(31 downto 0);
+            crc_current      : out std_logic_vector(31 downto 0));
+    end component;
+
     constant ETH_IDLE           : std_logic_vector(15 downto 0) := x"50BC";
     constant ETH_PREAMBLE_SOF   : t_std16_array(0 to 3) := (x"55FB", x"5555", x"5555", x"D555");
-    constant ETH_HEADER         : t_std16_array(0 to 7) := (x"CFED", x"CFED", x"CFED", x"9E80", x"1417", x"1500", x"7088");
-    constant ETH_EOF            : t_std16_array(0 to 3) := (x"F7FD", x"C5BC");
+    constant ETH_HEADER         : t_std16_array(0 to 6) := (x"CFED", x"CFED", x"CFED", x"9E80", x"1417", x"1500", x"7088");
+    constant ETH_EOF            : t_std16_array(0 to 1) := (x"F7FD", x"C5BC");
     constant DDU_EOE_WORD64     : std_logic_vector(63 downto 0) := x"8000ffff80008000";
 
     type t_eth_state is (IDLE, PREAMBLE_SOF, HEADER, PAYLOAD, FILLER, PACKET_CNT, CRC, EOF);
@@ -66,6 +75,7 @@ architecture gbe_tx_driver_arch of gbe_tx_driver is
     signal first_filler_word    : std_logic := '0';
     signal not_idle             : std_logic;
     
+    signal evt_cnt              : unsigned(31 downto 0) := (others => '0');
     signal evt_word_cnt         : unsigned(15 downto 0) := (others => '0');
     signal word64               : std_logic_vector(63 downto 0) := (others => '0');
     signal eoe_detected         : std_logic := '0';
@@ -92,6 +102,7 @@ begin
     
     err_event_too_big_o <= err_evt_too_big;
     err_eoe_not_found_o <= err_eoe_not_found;
+    evt_cnt_o <= std_logic_vector(evt_cnt);
 
     process(gbe_clk_i)
     begin
@@ -224,7 +235,7 @@ begin
                         crc_en <= '1';
                                                
                         if (first_filler_word = '1') then
-                            data <= x"ff" & std_logic_vector(to_unsigned(word_idx, 8));
+                            data <= x"ff" & std_logic_vector(to_unsigned(word_idx*2, 8));
                         else
                             data <= x"ffff";
                         end if;
@@ -313,7 +324,7 @@ begin
             if (reset_i = '1') then
                 packet_idx <= (others => '0');
             else
-                if state = EOF then
+                if (state = EOF) and (word_idx = 0) then
                     packet_idx <= packet_idx + 1;
                 else
                     packet_idx <= packet_idx;
@@ -335,7 +346,8 @@ begin
                 eoe_detected <= '0';
                 eoe_countdown <= (others => '0');     
                 err_evt_too_big <= '0';  
-                err_eoe_not_found <= '0';                          
+                err_eoe_not_found <= '0';
+                evt_cnt <= (others => '0');                
             else
 
                 if (state = PAYLOAD) then
@@ -344,9 +356,11 @@ begin
                     if (word64 = DDU_EOE_WORD64) then
                         eoe_countdown <= "111";
                         eoe_detected <= '1';
+                        evt_cnt <= evt_cnt + 1;
                     elsif (eoe_countdown = "000") then
                         eoe_detected <= '0';
                         eoe_countdown <= (others => '0');
+                        evt_cnt <= evt_cnt;
                     else
                         eoe_detected <= '1';
                         eoe_countdown <= eoe_countdown - 1;
@@ -369,7 +383,14 @@ begin
                     else
                         err_eoe_not_found <= err_eoe_not_found;
                     end if;
-                    
+                else
+                    word64 <= (others => '0');
+                    evt_cnt <= evt_cnt;
+                    evt_word_cnt <= evt_word_cnt;
+                    eoe_detected <= '0';
+                    eoe_countdown <= (others => '0');     
+                    err_evt_too_big <= err_evt_too_big;  
+                    err_eoe_not_found <= err_eoe_not_found;                          
                 end if;
 
             end if;
@@ -394,7 +415,7 @@ begin
     
     -- crc
     
-    i_crc : entity work.crc32_gbe
+    i_crc : crc32_gbe
         port map(
             data_in     => data,
             crc_en      => crc_en,

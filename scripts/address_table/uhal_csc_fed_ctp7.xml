@@ -201,11 +201,18 @@
         <node id="RESET" address="0x00000000" permission="rw" mask="0x00000008"/>
         <node id="TTS_OVERRIDE" address="0x00000000" permission="rw" mask="0x000000f0"/>
         <node id="INPUT_ENABLE_MASK" address="0x00000000" permission="rw" mask="0xffffff00"/>
-        <node id="DAV_TIMEOUT" address="0x00000006" permission="rw" mask="0x00ffffff"/>
-        <node id="FREEZE_ON_ERROR" address="0x00000006" permission="rw" mask="0x01000000"/>
-        <node id="RESET_TILL_RESYNC" address="0x00000006" permission="rw" mask="0x02000000"/>
+        <node id="DAV_TIMEOUT" address="0x00000001" permission="rw" mask="0x00ffffff"/>
+        <node id="FREEZE_ON_ERROR" address="0x00000001" permission="rw" mask="0x01000000"/>
+        <node id="RESET_TILL_RESYNC" address="0x00000001" permission="rw" mask="0x02000000"/>
+        <node id="RUN_TYPE" address="0x00000002" permission="rw" mask="0x0f000000"/>
+        <node id="RUN_PARAMS" address="0x00000002" permission="rw" mask="0x00ffffff"/>
+        <node id="SPY" address="0x0000000f" >
+          <node id="SPY_SKIP_ETH_HEADER" address="0x00000000" permission="rw" mask="0x00000001"/>
+          <node id="SPY_PRESCALE" address="0x00000000" permission="rw" mask="0xffff0000"/>
+          <node id="SPY_SKIP_EMPTY_EVENTS" address="0x00000000" permission="rw" mask="0x00000002"/>
+        </node>
       </node>
-      <node id="STATUS" address="0x00000001" >
+      <node id="STATUS" address="0x00000010" >
         <node id="DAQ_LINK_RDY" address="0x00000000" permission="r" mask="0x00000001"/>
         <node id="DAQ_CLK_LOCKED" address="0x00000000" permission="r" mask="0x00000002"/>
         <node id="TTC_RDY" address="0x00000000" permission="r" mask="0x00000004"/>
@@ -218,32 +225,35 @@
         <node id="L1A_FIFO_IS_NEAR_FULL" address="0x00000000" permission="r" mask="0x04000000"/>
         <node id="L1A_FIFO_IS_EMPTY" address="0x00000000" permission="r" mask="0x08000000"/>
         <node id="TTS_STATE" address="0x00000000" permission="r" mask="0xf0000000"/>
-      </node>
-      <node id="EXT_STATUS" address="0x00000002" >
-        <node id="NOTINTABLE_ERR" address="0x00000000" permission="r" mask="0x0000ffff"/>
-        <node id="DISPER_ERR" address="0x00000001" permission="r" mask="0x0000ffff"/>
+        <node id="NOTINTABLE_ERR" address="0x00000001" permission="r" mask="0x0000ffff"/>
+        <node id="DISPER_ERR" address="0x00000001" permission="r" mask="0xffff0000"/>
         <node id="L1AID" address="0x00000002" permission="r" mask="0x00ffffff"/>
         <node id="EVT_SENT" address="0x00000003" permission="r" mask="0xffffffff"/>
-        <node id="MAX_DAV_TIMER" address="0x00000005" permission="r" mask="0x00ffffff"/>
-        <node id="LAST_DAV_TIMER" address="0x00000006" permission="r" mask="0x00ffffff"/>
-        <node id="L1A_FIFO_DATA_CNT" address="0x00000007" permission="r" mask="0x00001fff"/>
-        <node id="DAQ_FIFO_DATA_CNT" address="0x00000007" permission="r" mask="0x1fff0000"/>
-        <node id="L1A_FIFO_NEAR_FULL_CNT" address="0x00000008" permission="r" mask="0x0000ffff"/>
-        <node id="DAQ_FIFO_NEAR_FULL_CNT" address="0x00000008" permission="r" mask="0xffff0000"/>
-        <node id="DAQ_ALMOST_FULL_CNT" address="0x00000009" permission="r" mask="0x0000ffff"/>
-        <node id="TTS_WARN_CNT" address="0x00000009" permission="r" mask="0xffff0000"/>
-        <node id="DAQ_WORD_RATE" address="0x0000000a" permission="r" mask="0xffffffff"/>
+        <node id="MAX_DAV_TIMER" address="0x00000004" permission="r" mask="0x00ffffff"/>
+        <node id="LAST_DAV_TIMER" address="0x00000005" permission="r" mask="0x00ffffff"/>
+        <node id="L1A_FIFO_DATA_CNT" address="0x00000006" permission="r" mask="0x00001fff"/>
+        <node id="DAQ_FIFO_DATA_CNT" address="0x00000006" permission="r" mask="0x1fff0000"/>
+        <node id="L1A_FIFO_NEAR_FULL_CNT" address="0x00000007" permission="r" mask="0x0000ffff"/>
+        <node id="DAQ_FIFO_NEAR_FULL_CNT" address="0x00000007" permission="r" mask="0xffff0000"/>
+        <node id="DAQ_ALMOST_FULL_CNT" address="0x00000008" permission="r" mask="0x0000ffff"/>
+        <node id="TTS_WARN_CNT" address="0x00000008" permission="r" mask="0xffff0000"/>
+        <node id="DAQ_WORD_RATE" address="0x00000009" permission="r" mask="0xffffffff"/>
+        <node id="SPY" address="0x00000010" >
+          <node id="SPY_WORD_RATE" address="0x00000000" permission="r" mask="0xffffffff"/>
+          <node id="SPY_EVENTS_SENT" address="0x00000001" permission="r" mask="0xffffffff"/>
+          <node id="ERR_BIG_EVENT" address="0x00000002" permission="r" mask="0x00000001"/>
+          <node id="ERR_EOE_NOT_FOUND" address="0x00000002" permission="r" mask="0x00000002"/>
+          <node id="ERR_SPY_FIFO_HAD_OFLOW" address="0x00000002" permission="r" mask="0x00000004"/>
+          <node id="SPY_FIFO_AFULL_CNT" address="0x00000002" permission="r" mask="0xffff0000"/>
+          <node id="SPY_FIFO_IS_EMPTY" address="0x00000002" permission="r" mask="0x00000008"/>
+        </node>
       </node>
-      <node id="EXT_CONTROL" address="0x0000000d" >
-        <node id="RUN_TYPE" address="0x00000000" permission="rw" mask="0x0f000000"/>
-        <node id="RUN_PARAMS" address="0x00000000" permission="rw" mask="0x00ffffff"/>
-      </node>
-      <node id="LAST_EVENT_FIFO" address="0x0000000e" >
+      <node id="LAST_EVENT_FIFO" address="0x00000030" >
         <node id="DISABLE" address="0x00000000" permission="rw" mask="0x80000000"/>
         <node id="EMPTY" address="0x00000000" permission="r" mask="0x00000001"/>
         <node id="DATA" address="0x00000001" permission="r" mask="0xffffffff"/>
       </node>
-      <node id="DMB0" address="0x00000010" >
+      <node id="DMB0" address="0x00000050" >
         <node id="STATUS" address="0x00000000" >
           <node id="INPUT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000100"/>
           <node id="INPUT_FIFO_HAD_UFLOW" address="0x00000000" permission="r" mask="0x00000200"/>
@@ -270,7 +280,7 @@
           <node id="EVT_RATE" address="0x00000006" permission="r" mask="0xffff8000"/>
         </node>
       </node>
-      <node id="DMB1" address="0x00000020" >
+      <node id="DMB1" address="0x00000060" >
         <node id="STATUS" address="0x00000000" >
           <node id="INPUT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000100"/>
           <node id="INPUT_FIFO_HAD_UFLOW" address="0x00000000" permission="r" mask="0x00000200"/>
@@ -297,7 +307,7 @@
           <node id="EVT_RATE" address="0x00000006" permission="r" mask="0xffff8000"/>
         </node>
       </node>
-      <node id="DMB2" address="0x00000030" >
+      <node id="DMB2" address="0x00000070" >
         <node id="STATUS" address="0x00000000" >
           <node id="INPUT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000100"/>
           <node id="INPUT_FIFO_HAD_UFLOW" address="0x00000000" permission="r" mask="0x00000200"/>
@@ -324,7 +334,7 @@
           <node id="EVT_RATE" address="0x00000006" permission="r" mask="0xffff8000"/>
         </node>
       </node>
-      <node id="DMB3" address="0x00000040" >
+      <node id="DMB3" address="0x00000080" >
         <node id="STATUS" address="0x00000000" >
           <node id="INPUT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000100"/>
           <node id="INPUT_FIFO_HAD_UFLOW" address="0x00000000" permission="r" mask="0x00000200"/>
@@ -351,7 +361,7 @@
           <node id="EVT_RATE" address="0x00000006" permission="r" mask="0xffff8000"/>
         </node>
       </node>
-      <node id="DMB4" address="0x00000050" >
+      <node id="DMB4" address="0x00000090" >
         <node id="STATUS" address="0x00000000" >
           <node id="INPUT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000100"/>
           <node id="INPUT_FIFO_HAD_UFLOW" address="0x00000000" permission="r" mask="0x00000200"/>
@@ -378,7 +388,7 @@
           <node id="EVT_RATE" address="0x00000006" permission="r" mask="0xffff8000"/>
         </node>
       </node>
-      <node id="DMB5" address="0x00000060" >
+      <node id="DMB5" address="0x000000a0" >
         <node id="STATUS" address="0x00000000" >
           <node id="INPUT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000100"/>
           <node id="INPUT_FIFO_HAD_UFLOW" address="0x00000000" permission="r" mask="0x00000200"/>
@@ -405,7 +415,7 @@
           <node id="EVT_RATE" address="0x00000006" permission="r" mask="0xffff8000"/>
         </node>
       </node>
-      <node id="DMB6" address="0x00000070" >
+      <node id="DMB6" address="0x000000b0" >
         <node id="STATUS" address="0x00000000" >
           <node id="INPUT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000100"/>
           <node id="INPUT_FIFO_HAD_UFLOW" address="0x00000000" permission="r" mask="0x00000200"/>
@@ -432,7 +442,7 @@
           <node id="EVT_RATE" address="0x00000006" permission="r" mask="0xffff8000"/>
         </node>
       </node>
-      <node id="DMB7" address="0x00000080" >
+      <node id="DMB7" address="0x000000c0" >
         <node id="STATUS" address="0x00000000" >
           <node id="INPUT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000100"/>
           <node id="INPUT_FIFO_HAD_UFLOW" address="0x00000000" permission="r" mask="0x00000200"/>
@@ -459,7 +469,7 @@
           <node id="EVT_RATE" address="0x00000006" permission="r" mask="0xffff8000"/>
         </node>
       </node>
-      <node id="DMB8" address="0x00000090" >
+      <node id="DMB8" address="0x000000d0" >
         <node id="STATUS" address="0x00000000" >
           <node id="INPUT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000100"/>
           <node id="INPUT_FIFO_HAD_UFLOW" address="0x00000000" permission="r" mask="0x00000200"/>
@@ -486,7 +496,7 @@
           <node id="EVT_RATE" address="0x00000006" permission="r" mask="0xffff8000"/>
         </node>
       </node>
-      <node id="DMB9" address="0x000000a0" >
+      <node id="DMB9" address="0x000000e0" >
         <node id="STATUS" address="0x00000000" >
           <node id="INPUT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000100"/>
           <node id="INPUT_FIFO_HAD_UFLOW" address="0x00000000" permission="r" mask="0x00000200"/>
@@ -513,7 +523,7 @@
           <node id="EVT_RATE" address="0x00000006" permission="r" mask="0xffff8000"/>
         </node>
       </node>
-      <node id="DMB10" address="0x000000b0" >
+      <node id="DMB10" address="0x000000f0" >
         <node id="STATUS" address="0x00000000" >
           <node id="INPUT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000100"/>
           <node id="INPUT_FIFO_HAD_UFLOW" address="0x00000000" permission="r" mask="0x00000200"/>
@@ -540,7 +550,7 @@
           <node id="EVT_RATE" address="0x00000006" permission="r" mask="0xffff8000"/>
         </node>
       </node>
-      <node id="DMB11" address="0x000000c0" >
+      <node id="DMB11" address="0x00000100" >
         <node id="STATUS" address="0x00000000" >
           <node id="INPUT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000100"/>
           <node id="INPUT_FIFO_HAD_UFLOW" address="0x00000000" permission="r" mask="0x00000200"/>
@@ -567,7 +577,7 @@
           <node id="EVT_RATE" address="0x00000006" permission="r" mask="0xffff8000"/>
         </node>
       </node>
-      <node id="DMB12" address="0x000000d0" >
+      <node id="DMB12" address="0x00000110" >
         <node id="STATUS" address="0x00000000" >
           <node id="INPUT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000100"/>
           <node id="INPUT_FIFO_HAD_UFLOW" address="0x00000000" permission="r" mask="0x00000200"/>
@@ -594,7 +604,7 @@
           <node id="EVT_RATE" address="0x00000006" permission="r" mask="0xffff8000"/>
         </node>
       </node>
-      <node id="DMB13" address="0x000000e0" >
+      <node id="DMB13" address="0x00000120" >
         <node id="STATUS" address="0x00000000" >
           <node id="INPUT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000100"/>
           <node id="INPUT_FIFO_HAD_UFLOW" address="0x00000000" permission="r" mask="0x00000200"/>
@@ -621,7 +631,7 @@
           <node id="EVT_RATE" address="0x00000006" permission="r" mask="0xffff8000"/>
         </node>
       </node>
-      <node id="DMB14" address="0x000000f0" >
+      <node id="DMB14" address="0x00000130" >
         <node id="STATUS" address="0x00000000" >
           <node id="INPUT_FIFO_HAD_OFLOW" address="0x00000000" permission="r" mask="0x00000100"/>
           <node id="INPUT_FIFO_HAD_UFLOW" address="0x00000000" permission="r" mask="0x00000200"/>
