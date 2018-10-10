@@ -1,5 +1,6 @@
 from rw_reg import *
 from time import *
+from utils import *
 import datetime
 import array
 import struct
@@ -30,8 +31,8 @@ def main():
     if not filename:
         filename = os.environ['HOME'] + "/csc_fed/data/run_" + datetime.datetime.now().strftime("%Y-%m-%d__%H_%M_%S") + ".raw"
 
-    inputMask = 0x7eff
-    inputMaskStr = raw_input("DAQ input enable bitmask as hex (default = 0x7eff, meaning only the first input is enabled)")
+    inputMask = 0x7efd
+    inputMaskStr = raw_input("DAQ input enable bitmask as hex (default = 0x7efd, meaning only the first input is enabled)")
     if inputMaskStr:
         inputMask = parseInt(inputMaskStr)
 
@@ -39,6 +40,21 @@ def main():
     ignoreAmc13Str = raw_input("Should we ignore AMC13 path? (default = yes)")
     if (ignoreAmc13Str == "no") or (ignoreAmc13Str == "n"):
         ignoreAmc13 = 0x0
+
+    readoutToCtp7 = False
+    readoutToCtp7Str = raw_input("Should we readout locally to CTP7 SD card? (default = no)")
+    if (readoutToCtp7Str == "yes") or (readoutToCtp7Str == "y"):
+        readoutToCtp7 = True
+
+    waitForResync = 0x1
+    waitForResyncStr = raw_input("Should we keep the DAQ in reset until a resync? (default = yes)")
+    if (waitForResyncStr == "no") or (waitForResyncStr == "n"):
+        waitForResync = 0x0
+
+    freezeOnError = 0x0
+    freezeOnErrorStr = raw_input("Should the DAQ freeze on TTS error? (default = no)")
+    if (freezeOnErrorStr == "yes") or (freezeOnErrorStr == "y"):
+        freezeOnError = 0x1
 
     parseXML()
 
@@ -49,8 +65,8 @@ def main():
     writeReg(getNode('CSC_FED.DAQ.CONTROL.DAQ_ENABLE'), 0x0)
     writeReg(getNode('CSC_FED.DAQ.CONTROL.INPUT_ENABLE_MASK'), inputMask)
     writeReg(getNode('CSC_FED.DAQ.CONTROL.IGNORE_AMC13'), ignoreAmc13)
-    writeReg(getNode('CSC_FED.DAQ.CONTROL.FREEZE_ON_ERROR'), 0x1)
-    writeReg(getNode('CSC_FED.DAQ.CONTROL.RESET_TILL_RESYNC'), 0x0)
+    writeReg(getNode('CSC_FED.DAQ.CONTROL.FREEZE_ON_ERROR'), freezeOnError)
+    writeReg(getNode('CSC_FED.DAQ.CONTROL.RESET_TILL_RESYNC'), waitForResync)
     writeReg(getNode('CSC_FED.DAQ.CONTROL.SPY.SPY_SKIP_EMPTY_EVENTS'), 0x1)
     writeReg(getNode('CSC_FED.DAQ.CONTROL.SPY.SPY_PRESCALE'), 0x4)
     writeReg(getNode('CSC_FED.DAQ.CONTROL.RESET'), 0x1)
@@ -60,48 +76,58 @@ def main():
     writeReg(getNode('CSC_FED.DAQ.CONTROL.RESET'), 0x0)
 
     signal.signal(signal.SIGINT, exitHandler) #register SIGINT to gracefully exit
-    RAW_FILE = open(filename, 'w')
+    RAW_FILE = None
+    if readoutToCtp7:
+        RAW_FILE = open(filename, 'w')
 
     heading("Taking data!")
     printCyan("Filename = " + filename)
     printCyan("Press Ctrl+C to stop (gracefully)")
 
     numEvents = 0
+    numEventsSentToSpy = 0
     daqEmptyNode = getNode('CSC_FED.DAQ.LAST_EVENT_FIFO.EMPTY')
     daqDataNode = getNode('CSC_FED.DAQ.LAST_EVENT_FIFO.DATA')
     daqLastEventDisableNode = getNode('CSC_FED.DAQ.LAST_EVENT_FIFO.DISABLE')
+    spyEventsSentNode = getNode('CSC_FED.DAQ.STATUS.SPY.SPY_EVENTS_SENT')
     ttsStateNode = getNode('CSC_FED.DAQ.STATUS.TTS_STATE')
     empty = 0
     data = 0
     ttsState = 0
     evtSize = 0
     while True:
-        empty = parseInt(readReg(daqEmptyNode))
-        if empty == 0:
-            RAW_FILE.write("======================== Event %i ========================\n" % numEvents)
-            numEvents += 1
-            evtSize = 0
-            #block last event fifo until you're finished reading the event in order to know the event boundaries
-            writeReg(daqLastEventDisableNode, 0x1)
-            while empty == 0:
-                data = (parseInt(readReg(daqDataNode)) << 32) + parseInt(readReg(daqDataNode))
-                empty = parseInt(readReg(daqEmptyNode))
-                evtSize += 1
-                RAW_FILE.write(hexPadded64(data) + '\n')
-            writeReg(daqLastEventDisableNode, 0x0)
-            RAW_FILE.write("==================== Num words = %i ====================\n" % evtSize)
-            RAW_FILE.write("========================================================\n")
+        if readoutToCtp7:
+            empty = parseInt(readReg(daqEmptyNode))
+            if empty == 0:
+                RAW_FILE.write("======================== Event %i ========================\n" % numEvents)
+                numEvents += 1
+                evtSize = 0
+                #block last event fifo until you're finished reading the event in order to know the event boundaries
+                writeReg(daqLastEventDisableNode, 0x1)
+                while empty == 0:
+                    data = (parseInt(readReg(daqDataNode)) << 32) + parseInt(readReg(daqDataNode))
+                    empty = parseInt(readReg(daqEmptyNode))
+                    evtSize += 1
+                    RAW_FILE.write(hexPadded64(data) + '\n')
+                writeReg(daqLastEventDisableNode, 0x0)
+                RAW_FILE.write("==================== Num words = %i ====================\n" % evtSize)
+                RAW_FILE.write("========================================================\n")
 
-        if (numEvents % 10 == 0):
-            sys.stdout.write("\rEvents: %i" % numEvents)
+        numEventsSentToSpy = parseInt(readReg(spyEventsSentNode))
+        if (numEvents % 10 == 0) or (numEventsSentToSpy % 1000 == 0):
+            sys.stdout.write("\rEvents read to CTP7: %i, events sent to spy: %i" % (numEvents, numEventsSentToSpy))
             sys.stdout.flush()
 
         ttsState = parseInt(readReg(ttsStateNode))
         if ttsState == 0xc:
-            printRed("TTS state = ERROR! Exiting...")
-            RAW_FILE.close()
+            printRed("TTS state = ERROR! Dumping regs and waiting for ready state...")
+            # if readoutToCtp7:
+            #     RAW_FILE.close()
             dumpDaqRegs()
-            sys.exit(0)
+            print("")
+            while ttsState == 0xc:
+                ttsState = parseInt(readReg(ttsStateNode))
+                sleep(0.1)
 
 def exitHandler(signal, frame):
     global RAW_FILE
@@ -118,24 +144,8 @@ def initDaqRegAddrs():
 
 
 def dumpDaqRegs():
-    printRed("=================================================================")
-    printRed("===================== Dumping TTS Registers =====================")
-    printRed("=================================================================")
-
-    nodes = getNodesContaining('TTS_STATE')
-    for node in nodes:
-        if node.permission is not None and 'r' in node.permission:
-            print "%s\t\t\t%s" % (node.name, readReg(node))
-
-    printRed("=================================================================")
-    printRed("=================== Dumping all DAQ Registers ===================")
-    printRed("=================================================================")
-
-    nodes = getNodesContaining('CSC_FED.DAQ')
-    for node in nodes:
-        if node.permission is not None and 'r' in node.permission:
-            print "%s\t\t\t%s" % (node.name, readReg(node))
-
+    dumpRegs("CSC_FED.LINKS", True, "Link Registers")
+    dumpRegs("CSC_FED.DAQ", True, "DAQ Registers")
 
 #---------------------------- utils ------------------------------------------------
 

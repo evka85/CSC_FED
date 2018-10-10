@@ -3,7 +3,7 @@ __author__ = 'evka'
 import xml.etree.ElementTree as xml
 import textwrap as tw
 import sys
-import rw_reg
+# import rw_reg
 
 ADDRESS_TABLE_TOP = './address_table/csc_fed.xml'
 CONSTANTS_FILE = '../common/hdl/pkg/registers.vhd'
@@ -559,16 +559,17 @@ def writeStatusBashScript(modules, filename):
     f.close()
 
 def writeUHalAddressTable(modules, filename, addrOffset):
-    print('Writing uHAL address table XML')
-
-    rw_reg.parseXML(ADDRESS_TABLE_TOP)
-    top = rw_reg.getNode('CSC_FED')
-    f = open(filename, 'w')
-    f.write('<?xml version="1.0" encoding="ISO-8859-1"?>\n')
-    f.write('<node id="top">\n')
-    printNodeToUHALFile(top, f, 1, 0, None, addrOffset)
-    f.write('</node>\n')
-    f.close()
+    pass
+    # print('Writing uHAL address table XML')
+    #
+    # rw_reg.parseXML(ADDRESS_TABLE_TOP)
+    # top = rw_reg.getNode('CSC_FED')
+    # f = open(filename, 'w')
+    # f.write('<?xml version="1.0" encoding="ISO-8859-1"?>\n')
+    # f.write('<node id="top">\n')
+    # printNodeToUHALFile(top, f, 1, 0, None, addrOffset)
+    # f.write('</node>\n')
+    # f.close()
 
 def printNodeToUHALFile(node, file, level, baseAddress, baseName, addrOffset):
     for i in range(level):

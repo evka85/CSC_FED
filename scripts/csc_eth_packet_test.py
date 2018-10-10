@@ -75,7 +75,7 @@ def main():
     largest_size_idx = -1
     events_read = 0
     if localDaqEventNum is not None:
-        events.append(dduReadEvent(localDaqFile, localDaqEventNum))
+        events.append(dduReadEventRaw(localDaqFile, localDaqEventNum))
         events_read = 1
         print("read event #%d, size = %d bytes" % (localDaqEventNum, len(events[0]) * 8))
         localDaqEventNum = None
@@ -83,7 +83,7 @@ def main():
     size = 1
     words_read = 0
     while size > 0 and ((events_read < localDaqNumOfEvents) or localDaqNumOfEvents is None):
-        event = dduReadEvent(localDaqFile, localDaqEventNum)
+        event = dduReadEventRaw(localDaqFile, localDaqEventNum)
         size = len(event)
         words_read += size
         events.append(event)

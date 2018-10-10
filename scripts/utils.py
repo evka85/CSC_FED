@@ -1,3 +1,5 @@
+from rw_reg import *
+
 class Colors:
     WHITE   = '\033[97m'
     CYAN    = '\033[96m'
@@ -63,3 +65,34 @@ def parseInt(string):
         return int(string, 2)
     else:
         return int(string)
+
+def regNicePrint(regNode, printIfOk = True):
+    val = parseInt(readReg(regNode))
+    color = None
+    if ((regNode.error_min_value is not None) and (val >= regNode.error_min_value)) or ((regNode.error_max_value is not None) and (val <= regNode.error_max_value)) or ((regNode.error_value is not None) and (val == regNode.error_value)):
+        color = Colors.RED
+    elif ((regNode.warn_min_value is not None) and (val >= regNode.warn_min_value)) or ((regNode.warn_max_value is not None) and (val <= regNode.warn_max_value)) or ((regNode.warn_value is not None) and (val == regNode.warn_value)):
+        color = Colors.YELLOW
+
+    s = "%-*s%s" % (90, regNode.name, hexPadded(val, 4, True))
+    if color is not None:
+        s = color + s + Colors.ENDC
+
+    if color is not None or printIfOk:
+        print(s)
+
+def dumpRegs(pattern, printIfOk = True, caption = None, captionColor = Colors.CYAN):
+    if caption is not None:
+        totalWidth = 100
+        if len(caption) + 6 > totalWidth:
+            totalWidth = len(caption) + 6
+        print(captionColor + "=" * totalWidth + Colors.ENDC)
+        padding1Size = int(((totalWidth-2-len(caption)) / 2))
+        padding2Size = padding1Size if padding1Size * 2 + len(caption) == totalWidth - 2 else padding1Size + 1
+        print(captionColor + "%s %s %s" % ("=" * padding1Size, caption, "=" * padding2Size) + Colors.ENDC)
+        print(captionColor + "=" * totalWidth + Colors.ENDC)
+
+    nodes = getNodesContaining(pattern)
+    for node in nodes:
+        if node.permission is not None and 'r' in node.permission:
+            regNicePrint(node, printIfOk)

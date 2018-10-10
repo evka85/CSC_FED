@@ -28,7 +28,7 @@ def main():
         l1aId = (cfedWords[0] >> 32) & 0xffffff;
         sys.stdout.write("\rEvent: %i (L1A ID %d)" % (numEvents, l1aId))
         sys.stdout.flush()
-        dduWords = dduReadEvent(dduFile, l1aId)
+        dduWords = dduReadEventRaw(dduFile, l1aId)
 
         # empty event in both paths (this shouldn't happen in 904 when it's self triggering, but hmm, whatever)
         if (len(cfedWords) == 8 and len(dduWords) == 6):

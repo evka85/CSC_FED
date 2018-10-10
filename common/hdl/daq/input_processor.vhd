@@ -347,7 +347,9 @@ begin
             else
 
                 -- ignore the idle words (they can also be sneaked in by our MGT RX at any time to correct for clock drift)
-                if ((input_data_link_i.rxcharisk(1 downto 0) /= DMB_IDLE_WORD_KCHAR) or (input_data_link_i.rxdata(15 downto 0) /= DMB_IDLE_WORD_DATA)) then
+                -- also just ignore the DDU code C (will have to check these later for stats and headers, but these are not to be recorded)
+                if (not ((input_data_link_i.rxcharisk(1 downto 0) = DMB_IDLE_WORD_KCHAR) and (input_data_link_i.rxdata(15 downto 0) = DMB_IDLE_WORD_DATA))) 
+                   and (input_data_link_i.rxdata(15 downto 12) /= x"c") then
                 
                     lp_word64 := input_data_link_i.rxdata(15 downto 0) & lp_word64(63 downto 16);
                                         

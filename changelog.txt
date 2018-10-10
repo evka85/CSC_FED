@@ -130,3 +130,39 @@ Fixed packet counter in the gbe_tx_driver (was incrementing by 2, causing missin
 --------------------
 
 Implemented optional skipping of empty events in the spy path. Also optimized the DAQ to not waste cycles checking each input if the event is completely empty.
+
+--------------------
+----   1.2.5    ----
+---- 2018-10-08 ----
+--------------------
+
+Ignore the DDU code C and B words (will have to check these later for stats and headers, but these are not to be recorded)
+
+--------------------
+----   1.2.6    ----
+---- 2018-10-08 ----
+--------------------
+
+DDU CRC implemented in the last DDU trailer.
+Also don't skip the B words
+
+--------------------
+----   1.2.7    ----
+---- 2018-10-09 ----
+--------------------
+
+Found that the 1.6Gbps GTH clock correction sequence was defined as 0x50 as the first byte and 0xbc as the second byte, which seems to be backwards. Swapped it in this version.
+
+--------------------
+----   1.2.8    ----
+---- 2018-10-09 ----
+--------------------
+
+Set the RX_DISPERR_SEQ_MATCH to false in the 1.6Gbps GTHs to allow to match the correction sequences without looking at the disparity. Not sure if this will help, but lets see.
+
+--------------------
+----   1.2.9    ----
+---- 2018-10-09 ----
+--------------------
+
+Increased the 1.6Gbps GTH min elastic buffer depth from 12 to 30. This should allow more time without idles before an underflow occurs (needed for ODMB)

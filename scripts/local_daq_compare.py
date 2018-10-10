@@ -24,8 +24,8 @@ def main():
 
     numEvents = 0
     while True:
-        dduWords1 = dduReadEvent(ldaqFile1, None)
-        dduWords2 = dduReadEvent(ldaqFile2, None)
+        dduWords1 = dduReadEventRaw(ldaqFile1, None)
+        dduWords2 = dduReadEventRaw(ldaqFile2, None)
 
         # check event size first
         if (len(dduWords1) != len(dduWords2)):

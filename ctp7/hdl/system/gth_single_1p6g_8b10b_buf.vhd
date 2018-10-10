@@ -148,7 +148,7 @@ begin
       RX_SIG_VALID_DLY   => (10),
 
       ------------------RX 8B/10B Decoder Attributes---------------
-      RX_DISPERR_SEQ_MATCH => ("TRUE"),
+      RX_DISPERR_SEQ_MATCH => ("FALSE"), --TRUE
       DEC_MCOMMA_DETECT    => ("TRUE"),
       DEC_PCOMMA_DETECT    => ("TRUE"),
       DEC_VALID_COMMA_ONLY => ("FALSE"),
@@ -157,14 +157,14 @@ begin
       CBCC_DATA_SOURCE_SEL =>     ("DECODED"),
       CLK_COR_SEQ_2_USE    =>     ("FALSE"),
       CLK_COR_KEEP_IDLE    =>     ("FALSE"),
-      CLK_COR_MAX_LAT      =>     (15),
-      CLK_COR_MIN_LAT      =>     (12),
+      CLK_COR_MAX_LAT      =>     (33), -- 15
+      CLK_COR_MIN_LAT      =>     (30), -- 12
       CLK_COR_PRECEDENCE   =>     ("TRUE"),
       CLK_COR_REPEAT_WAIT  =>     (0),
       CLK_COR_SEQ_LEN      =>     (2),
       CLK_COR_SEQ_1_ENABLE =>     ("1111"),
-      CLK_COR_SEQ_1_1      =>     ("0001010000"),
-      CLK_COR_SEQ_1_2      =>     ("0110111100"),
+      CLK_COR_SEQ_1_1      =>     ("0110111100"),
+      CLK_COR_SEQ_1_2      =>     ("0001010000"),
       CLK_COR_SEQ_1_3      =>     ("0000000000"),
       CLK_COR_SEQ_1_4      =>     ("0000000000"),
       CLK_CORRECT_USE      =>     ("TRUE"),

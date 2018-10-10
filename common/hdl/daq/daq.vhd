@@ -157,12 +157,15 @@ architecture Behavioral of daq is
     signal daq_event_trailer    : std_logic := '0';
     signal daq_ready            : std_logic := '0';
     signal daq_almost_full      : std_logic := '0';
-    signal daq_not_empty_event  : std_logic := '0'; 
-  
+
     signal daq_disper_err_cnt   : std_logic_vector(15 downto 0) := (others => '0');
     signal daq_notintable_err_cnt: std_logic_vector(15 downto 0) := (others => '0');
     signal daqlink_afull_cnt    : std_logic_vector(15 downto 0) := (others => '0');
 
+    -- Main DAQ FSM signals
+    signal daq_not_empty_event  : std_logic := '0';
+    signal ddu_crc              : std_logic_vector(15 downto 0) := (others => '0');
+  
     -- DAQ Error Flags
     signal err_l1afifo_full     : std_logic := '0';
     signal err_daqfifo_full     : std_logic := '0';
@@ -845,6 +848,20 @@ begin
     end process;
      
     --================================--
+    -- DDU CRC16
+    --================================--
+     
+    i_ddu_crc16 : entity work.crc16_usb
+        port map(
+            data_in     => daq_event_data,
+            crc_en      => spy_fifo_wr_en,
+            rst         => daq_event_header,
+            clk         => daq_clk_i,
+            crc_reg     => open,
+            crc_current => ddu_crc
+        );
+     
+    --================================--
     -- Event shipping to DAQLink
     --================================--
     
@@ -1268,7 +1285,7 @@ begin
                         -- send the data
                         daq_event_data <= x"a0" & 
                                           x"0" & std_logic_vector(e_word_count - 1) &
-                                          x"0000" & -- CRC TODO: implement the DDU CRC!!
+                                          ddu_crc & -- DDU CRC
                                           x"0" &
                                           tts_critical_error & -- DDU detected Critical Error, irrecoverable (RESET req'd) *OR of all possible "RESET required" cases
                                           '0' & -- DDU detected Single Error (bad event) *OR of all possible "bad event" cases
