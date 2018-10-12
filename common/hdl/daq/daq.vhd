@@ -1112,7 +1112,7 @@ begin
                                           '0' & -- GbE/SPY Path was Not Enabled for this event TODO: implement this
                                           '0' & -- GbE/SPY FIFO is Not Empty TODO: implement this
                                           '0' & -- DCC Link is Not Ready 
-                                          e_dav_mask(15 downto 0) and e_chmb_not_empty_arr(15 downto 0) & -- which CSCs have data for this event; one bit allocated per DDU fiber input
+                                          (e_dav_mask(15 downto 0) and e_chmb_not_empty_arr(15 downto 0)) & -- which CSCs have data for this event; one bit allocated per DDU fiber input
                                           '0' & -- NOT USED
                                           '0' & -- DDU single event warning *minor format error, fiber/RX error, or the DDU lost it's clock for some time; possible data loss  * consider RESET if this warning continues for consecutive events
                                           err_l1afifo_full & -- DDU SyncError (bad event, RESET req'd) * Multiple L1A errors or FIFO Full; possible data loss
