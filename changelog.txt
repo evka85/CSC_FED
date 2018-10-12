@@ -166,3 +166,18 @@ Set the RX_DISPERR_SEQ_MATCH to false in the 1.6Gbps GTHs to allow to match the 
 --------------------
 
 Increased the 1.6Gbps GTH min elastic buffer depth from 12 to 30. This should allow more time without idles before an underflow occurs (needed for ODMB)
+
+--------------------
+----   1.2.10   ----
+---- 2018-10-12 ----
+--------------------
+
+Fixed the DAV count in the FED header to not count empty DMB packets
+
+--------------------
+----   1.2.11   ----
+---- 2018-10-12 ----
+--------------------
+
+Added a "close L1A" flag in the trailer 3
+Also fixed the DAV flags in the header 3 to exclude empty DMB events

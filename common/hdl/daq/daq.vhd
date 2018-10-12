@@ -72,11 +72,11 @@ architecture Behavioral of daq is
             rst           : in  std_logic;
             wr_clk        : in  std_logic;
             rd_clk        : in  std_logic;
-            din           : in  std_logic_vector(51 downto 0);
+            din           : in  std_logic_vector(52 downto 0);
             wr_en         : in  std_logic;
             wr_ack        : out std_logic;
             rd_en         : in  std_logic;
-            dout          : out std_logic_vector(51 downto 0);
+            dout          : out std_logic_vector(52 downto 0);
             full          : out std_logic;
             overflow      : out std_logic;
             almost_full   : out std_logic;
@@ -227,10 +227,10 @@ architecture Behavioral of daq is
     signal ipb_write_reg_data       : t_std32_array(0 to (16 * (g_NUM_OF_DMBs + 10)) + 15); -- 16 regs for AMC evt builder and 16 regs for each chamber evt builder
     
     -- L1A FIFO
-    signal l1afifo_din          : std_logic_vector(51 downto 0) := (others => '0');
+    signal l1afifo_din          : std_logic_vector(52 downto 0) := (others => '0');
     signal l1afifo_wr_en        : std_logic := '0';
     signal l1afifo_rd_en        : std_logic := '0';
-    signal l1afifo_dout         : std_logic_vector(51 downto 0);
+    signal l1afifo_dout         : std_logic_vector(52 downto 0);
     signal l1afifo_full         : std_logic;
     signal l1afifo_overflow     : std_logic;
     signal l1afifo_empty        : std_logic;
@@ -239,6 +239,7 @@ architecture Behavioral of daq is
     signal l1afifo_near_full    : std_logic;
     signal l1afifo_data_cnt     : std_logic_vector(12 downto 0);
     signal l1afifo_near_full_cnt: std_logic_vector(15 downto 0);
+    signal l1a_gap_cntdown      : unsigned(7 downto 0) := (others => '0'); -- this is used to detect close L1As (meaning less than 1000ns apart)
     
     -- DAQ output FIFO
     signal daqfifo_din          : std_logic_vector(65 downto 0) := (others => '0');
@@ -574,22 +575,38 @@ begin
     
     -- fill the L1A FIFO
     process(ttc_clks_i.clk_40)
+        variable close_l1as : std_logic := '0';
     begin
         if (rising_edge(ttc_clks_i.clk_40)) then
             if (reset_daq = '1') then
                 err_l1afifo_full <= '0';
                 l1afifo_wr_en <= '0';
-            else
+                l1a_gap_cntdown <= (others => '0');
+            else                
                 if ((ttc_cmds_i.l1a = '1') and (freeze_on_error = '0' or tts_critical_error = '0')) then
-                    if (l1afifo_full = '0') then
-                        l1afifo_din <= ttc_daq_cntrs_i.l1id & ttc_daq_cntrs_i.orbit & ttc_daq_cntrs_i.bx;
-                        l1afifo_wr_en <= '1';
+                    l1a_gap_cntdown <= x"27";
+                    if l1a_gap_cntdown = x"00" then
+                        close_l1as := '0';
                     else
-                        err_l1afifo_full <= '1';
+                        close_l1as := '1';
+                    end if;
+                    
+                    l1afifo_din <= close_l1as & ttc_daq_cntrs_i.l1id & ttc_daq_cntrs_i.orbit & ttc_daq_cntrs_i.bx;
+                    if (l1afifo_full = '0') then
+                        l1afifo_wr_en <= '1';
+                        err_l1afifo_full <= err_l1afifo_full;
+                    else
                         l1afifo_wr_en <= '0';
+                        err_l1afifo_full <= '1';
                     end if;
                 else
                     l1afifo_wr_en <= '0';
+                    err_l1afifo_full <= err_l1afifo_full;
+                    if l1a_gap_cntdown /= x"00" then
+                        l1a_gap_cntdown <= l1a_gap_cntdown - 1;
+                    else
+                        l1a_gap_cntdown <= x"00";
+                    end if;                    
                 end if;
             end if;
         end if;
@@ -870,7 +887,8 @@ begin
         -- event info
         variable e_l1a_id                   : std_logic_vector(23 downto 0) := (others => '0');        
         variable e_bx_id                    : std_logic_vector(11 downto 0) := (others => '0');        
-        variable e_orbit_id                 : std_logic_vector(15 downto 0) := (others => '0');        
+        variable e_orbit_id                 : std_logic_vector(15 downto 0) := (others => '0');
+        variable e_close_l1a                : std_logic;        
         
         variable e_dmb_full                 : std_logic_vector(23 downto 0) := (others => '0');
         
@@ -979,6 +997,7 @@ begin
                         e_l1a_id        := l1afifo_dout(51 downto 28);
                         e_orbit_id      := l1afifo_dout(27 downto 12);
                         e_bx_id         := l1afifo_dout(11 downto 0);
+                        e_close_l1a     := l1afifo_dout(52);
 
                         -- send the data
                         daq_event_data <= x"00" & 
@@ -1004,7 +1023,7 @@ begin
                     elsif (daq_state = AMC13_HEADER_2) then
                     
                         -- calculate the DAV count (I know it's ugly...)
-                        e_dav_count <= to_integer(unsigned(e_dav_mask(0 downto 0))) + to_integer(unsigned(e_dav_mask(1 downto 1))) + to_integer(unsigned(e_dav_mask(2 downto 2))) + to_integer(unsigned(e_dav_mask(3 downto 3))) + to_integer(unsigned(e_dav_mask(4 downto 4))) + to_integer(unsigned(e_dav_mask(5 downto 5))) + to_integer(unsigned(e_dav_mask(6 downto 6))) + to_integer(unsigned(e_dav_mask(7 downto 7))) + to_integer(unsigned(e_dav_mask(8 downto 8))) + to_integer(unsigned(e_dav_mask(9 downto 9))) + to_integer(unsigned(e_dav_mask(10 downto 10))) + to_integer(unsigned(e_dav_mask(11 downto 11))) + to_integer(unsigned(e_dav_mask(12 downto 12))) + to_integer(unsigned(e_dav_mask(13 downto 13))) + to_integer(unsigned(e_dav_mask(14 downto 14))) + to_integer(unsigned(e_dav_mask(15 downto 15))) + to_integer(unsigned(e_dav_mask(16 downto 16))) + to_integer(unsigned(e_dav_mask(17 downto 17))) + to_integer(unsigned(e_dav_mask(18 downto 18))) + to_integer(unsigned(e_dav_mask(19 downto 19))) + to_integer(unsigned(e_dav_mask(20 downto 20))) + to_integer(unsigned(e_dav_mask(21 downto 21))) + to_integer(unsigned(e_dav_mask(22 downto 22))) + to_integer(unsigned(e_dav_mask(23 downto 23)));
+                        e_dav_count <= to_integer(unsigned(e_chmb_not_empty_arr(0 downto 0) and e_dav_mask(0 downto 0))) + to_integer(unsigned(e_chmb_not_empty_arr(1 downto 1) and e_dav_mask(1 downto 1))) + to_integer(unsigned(e_chmb_not_empty_arr(2 downto 2) and e_dav_mask(2 downto 2))) + to_integer(unsigned(e_chmb_not_empty_arr(3 downto 3) and e_dav_mask(3 downto 3))) + to_integer(unsigned(e_chmb_not_empty_arr(4 downto 4) and e_dav_mask(4 downto 4))) + to_integer(unsigned(e_chmb_not_empty_arr(5 downto 5) and e_dav_mask(5 downto 5))) + to_integer(unsigned(e_chmb_not_empty_arr(6 downto 6) and e_dav_mask(6 downto 6))) + to_integer(unsigned(e_chmb_not_empty_arr(7 downto 7) and e_dav_mask(7 downto 7))) + to_integer(unsigned(e_chmb_not_empty_arr(8 downto 8) and e_dav_mask(8 downto 8))) + to_integer(unsigned(e_chmb_not_empty_arr(8 downto 9) and e_dav_mask(9 downto 9))) + to_integer(unsigned(e_chmb_not_empty_arr(10 downto 10) and e_dav_mask(10 downto 10))) + to_integer(unsigned(e_chmb_not_empty_arr(11 downto 11) and e_dav_mask(11 downto 11))) + to_integer(unsigned(e_chmb_not_empty_arr(12 downto 12) and e_dav_mask(12 downto 12))) + to_integer(unsigned(e_chmb_not_empty_arr(13 downto 13) and e_dav_mask(13 downto 13))) + to_integer(unsigned(e_chmb_not_empty_arr(14 downto 14) and e_dav_mask(14 downto 14))) + to_integer(unsigned(e_chmb_not_empty_arr(15 downto 15) and e_dav_mask(15 downto 15))) + to_integer(unsigned(e_chmb_not_empty_arr(16 downto 16) and e_dav_mask(16 downto 16))) + to_integer(unsigned(e_chmb_not_empty_arr(17 downto 17) and e_dav_mask(17 downto 17))) + to_integer(unsigned(e_chmb_not_empty_arr(18 downto 18) and e_dav_mask(18 downto 18))) + to_integer(unsigned(e_chmb_not_empty_arr(19 downto 19) and e_dav_mask(19 downto 19))) + to_integer(unsigned(e_chmb_not_empty_arr(20 downto 20) and e_dav_mask(20 downto 20))) + to_integer(unsigned(e_chmb_not_empty_arr(21 downto 21) and e_dav_mask(21 downto 21))) + to_integer(unsigned(e_chmb_not_empty_arr(22 downto 22) and e_dav_mask(22 downto 22))) + to_integer(unsigned(e_chmb_not_empty_arr(23 downto 23) and e_dav_mask(23 downto 23)));
                         
                         -- send the data
                         daq_event_data <= C_DAQ_FORMAT_VERSION &
@@ -1093,7 +1112,7 @@ begin
                                           '0' & -- GbE/SPY Path was Not Enabled for this event TODO: implement this
                                           '0' & -- GbE/SPY FIFO is Not Empty TODO: implement this
                                           '0' & -- DCC Link is Not Ready 
-                                          e_dav_mask(15 downto 0) & -- which CSCs have data for this event; one bit allocated per DDU fiber input
+                                          e_dav_mask(15 downto 0) and e_chmb_not_empty_arr(15 downto 0) & -- which CSCs have data for this event; one bit allocated per DDU fiber input
                                           '0' & -- NOT USED
                                           '0' & -- DDU single event warning *minor format error, fiber/RX error, or the DDU lost it's clock for some time; possible data loss  * consider RESET if this warning continues for consecutive events
                                           err_l1afifo_full & -- DDU SyncError (bad event, RESET req'd) * Multiple L1A errors or FIFO Full; possible data loss
@@ -1283,7 +1302,8 @@ begin
                     elsif (daq_state = FED_TRAILER_3) then
 
                         -- send the data
-                        daq_event_data <= x"a0" & 
+                        daq_event_data <= x"a" &
+                                          "000" & e_close_l1a & 
                                           x"0" & std_logic_vector(e_word_count - 1) &
                                           ddu_crc & -- DDU CRC
                                           x"0" &
