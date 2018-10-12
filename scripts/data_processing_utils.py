@@ -10,18 +10,23 @@ import time
 class FedEvent:
 
     l1Id = None
-    errors = []
+    bxId = None
+    unpackErrors = None
 
     def __init__(self, words):
         self.words = words
         self.dmbs = []
-        self.unpackHeader()
-        self.unpackDmbs()
+        self.unpackErrors = []
+        self.init()
 
-    def unpackHeader(self):
+    # does the absolute minimum to get L1A ID, BX ID, and find DMB blocks and create DMB objects, without unpacking the DMB contents except for some minimal information like crate ID and DMB ID
+    def init(self):
         self.l1Id = (int(self.words[0]) >> 32) & 0xffffff
+        self.bxId = (int(self.words[0]) >> 20) & 0xfff
 
-    def unpackDmbs(self):
+        if self.words.size < 6:
+            self.errors.append("FED block size is smaller than 6 words (size = %d words)" % self.words.size)
+
         dmbHeaders = np.where(self.words & 0xf000f000f000f000 == 0x9000900090009000)[0]
         if dmbHeaders.size == 0:
             return
@@ -29,40 +34,166 @@ class FedEvent:
             self.dmbs.append(DmbEvent(self.words[dmbHeaders[i - 1]:dmbHeaders[i]]))
         self.dmbs.append(DmbEvent(self.words[dmbHeaders[dmbHeaders.size - 1]:self.words.size - 3]))
 
-    def checkErrors(self):
-        if self.words.size < 6:
-            self.errors.append("FED block size error (size = %d words)" % self.words.size)
         for dmb in self.dmbs:
-            dmb.checkErrors()
-            if len(dmb.errors) > 0:
-                self.errors.append("DMB error (crateId = %d, dmbId = %d)" % (dmb.crateId, dmb.dmbId))
+            for err in dmb.unpackErrors:
+                self.unpackErrors.append("DMB error (crateId = %d, dmbId = %d): %s" % (dmb.crateId, dmb.dmbId, err))
+
+    def unpackAll(self):
+        self.unpackHeader()
+        self.unpackTrailer()
+        for dmb in self.dmbs:
+            dmb.unpackAll()
+            for err in dmb.unpackErrors:
+                self.unpackErrors.append("DMB error (crateId = %d, dmbId = %d): %s" % (dmb.crateId, dmb.dmbId, err))
+
+
+    # TODO: implement unpacking of the FED header and trailer
+    def unpackHeader(self):
+        pass
+
+    def unpackTrailer(self):
+        pass
+
 
 class DmbEvent:
 
     crateId = 0
     dmbId = 0
-    errors = None
+    l1Id = 0
+    bxId = 0
+    unpackErrors = None
 
     def __init__(self, words):
         self.words = words
-        errors = []
-        if self.words.size < 4:
-            self.errors.append("DMB block size error (size = %d words)" % self.words.size)
-        else:
-            self.unpackHeader()
+        self.cfebs = []
+        self.unpackErrors = []
+        self.init()
 
+    def init(self):
+        if self.words.size < 4:
+            self.unpackErrors.append("DMB block size is smaller than 4 words (size = %d words)" % self.words.size)
+        else:
+            self.crateId = (int(self.words[1]) >> 20) & 0xff
+            self.dmbId = (int(self.words[1]) >> 16) & 0xf
+
+    def unpackAll(self):
+        if len(self.unpackErrors) > 0:
+            return
+
+        self.unpackHeader()
+        self.unpackTrailer()
+
+        cfebBlockIdx = 2
+        trigHeaders = np.where(self.words & 0xf000f000f000f000 == 0xd000d000d000d000)[0]
+        #TODO: unpack the ALCT and TMB
+        if trigHeaders.size > 0:
+            cfebBlockIdx = trigHeaders[trigHeaders.size - 1] + 1
+
+        cfebIdx = 1
+        while cfebBlockIdx + 25*8 <= self.words.size - 2:
+            cfeb = CfebEvent(self.words[cfebBlockIdx:cfebBlockIdx+25*8])
+            cfeb.unpackAll()
+            for err in cfeb.unpackErrors:
+                self.unpackErrors.append("CFEB #%d error: %s" % (cfebIdx, err))
+
+            self.cfebs.append(cfeb)
+            cfebIdx += 1
+            cfebBlockIdx += 25*8
+
+        if cfebBlockIdx != self.words.size - 2:
+            self.unpackErrors.append("CFEB #%d block did not end in the correct place: CFEB block start word idx = %d, expected CFEB block end word idx = %d, first DMB trailer word idx = %d" % (cfebIdx, cfebBlockIdx, cfebBlockIdx+25*8, self.words.size - 2))
+
+    # TODO: implement unpacking of the DMB header and trailer
     def unpackHeader(self):
-        self.crateId = (int(self.words[1]) >> 20) & 0xff
-        self.dmbId = (int(self.words[1]) >> 16) & 0xf
+        head1 = int(self.words[0])
+        head2 = int(self.words[1])
+        self.l1Id = ((head1 & 0xfff0000) >> 4) + (head1 & 0xfff)
+        self.bxId = (head1 >> 48) & 0xfff
+
+
+    def unpackTrailer(self):
+        pass
 
     def printDmbInfo(self):
         print ("Crate %d DMB %d" % (self.crateId, self.dmbId))
 
-    def checkErrors(self):
+class AlctEvent:
+
+    def __init__(self, words):
+        self.words = words
+        self.unpackErrors = []
+        self.init()
+
+    def init(self):
         pass
 
+    # TODO: implement unpacking of the ALCT data
+    def unpackAll(self):
+        pass
 
-def unpackFile(localDaqFilename):
+class TmbEvent:
+
+    def __init__(self, words):
+        self.words = words
+        self.unpackErrors = []
+        self.init()
+
+    def init(self):
+        pass
+
+    # TODO: implement unpacking of the TMB data
+    def unpackAll(self):
+        pass
+
+class CfebEvent:
+
+    l1Id = None
+
+    def __init__(self, words):
+        self.words = words
+        self.unpackErrors = []
+        self.timeSamples = []
+        self.init()
+
+    def init(self):
+        if self.words.size < 25*8:
+            self.unpackErrors.append("CFEB block size is smaller than 25*8 words: %d" % self.words.size)
+
+    # TODO: implement unpacking of the CFEB data
+    def unpackAll(self):
+        if len(self.unpackErrors) > 0:
+            return
+
+        for i in range(0, 8):
+            timeSample = CfebTimeSample(self.words[i*25:(i+1)*25])
+            timeSample.unpackAll()
+            for err in timeSample.unpackErrors:
+                self.unpackErrors.append("Time sample #%d error: %s" % (i, err))
+            self.timeSamples.append(timeSample)
+            if self.l1Id is None:
+                self.l1Id = timeSample.l1Id
+            elif self.l1Id != timeSample.l1Id:
+                self.unpackErrors.append("Time sample #%d has a different L1 ID than others: expected %d, but got %d" % (i, self.l1Id, timeSample.l1Id))
+
+
+class CfebTimeSample:
+
+    l1Id = 0
+
+    def __init__(self, words):
+        self.words = words
+        self.unpackErrors = []
+        self.init()
+
+    def init(self):
+        pass
+
+    # TODO: implement full unpacking of the CFEB time sample
+    def unpackAll(self):
+        trail = int(self.words[self.words.size - 1])
+        self.l1Id = (trail >> 38) & 0x3f
+
+def unpackFile(localDaqFilename, removeEmptyEvents = False, removeDmbs = []):
 
     # read the whole file into a numpy array
     print("Reading the file")
@@ -77,7 +208,18 @@ def unpackFile(localDaqFilename):
     start = 0
     i = 0
     for eoe in eoes[0]:
-        events.append(FedEvent(raw[start:eoe+3]))
+        event = FedEvent(raw[start:eoe+3])
+        if removeEmptyEvents:
+            dmbsToRemove = []
+            for j in range(0, len(event.dmbs)):
+                if [event.dmbs[j].crateId, event.dmbs[j].dmbId] in removeDmbs:
+                    dmbsToRemove.append(j)
+            for j in reversed(dmbsToRemove):
+                del event.dmbs[j]
+            if len(event.dmbs) > 0:
+                events.append(event)
+        else:
+            events.append(event)
         start = eoe + 3
         i += 1
         if (i % 1000 == 0):
@@ -95,6 +237,28 @@ def unpackFile(localDaqFilename):
 
     return events
 
+def checkEventErrors(event):
+    errors = []
+    event.unpackAll()
+    errors += event.unpackErrors
+
+    for dmb in event.dmbs:
+        # check L1 ID consistency
+        if dmb.l1Id != event.l1Id:
+            errors.append("DMB (crate %d dmb %d) L1A ID doesn't match the FED L1A ID: FED = %d, DMB = %d" % (dmb.crateId, dmb.dmbId, event.l1Id, dmb.l1Id))
+        for cfebIdx in range(0, len(dmb.cfebs)):
+            cfeb = dmb.cfebs[cfebIdx]
+            if cfeb.l1Id != (dmb.l1Id & 0x3f):
+                errors.append("CFEB #%d (crate %d dmb %d) L1A ID doesn't match the DMB L1A ID: DMB = %d, CFEB = %d, CFEB expected = %d" % (cfebIdx, dmb.crateId, dmb.dmbId, dmb.l1Id, cfeb.l1Id, dmb.l1Id & 0x3f))
+        # check BX ID consistency
+        # if dmb.bxId != event.bxId:
+        #     errors.append("DMB (crate %d dmb %d) BX ID doesn't match the FED BX ID: FED = %d, DMB = %d" % (dmb.crateId, dmb.dmbId, event.bxId, dmb.bxId))
+
+        # TODO: check L1 ID consistency of ALCT and TMB
+
+    # TODO: implement many other consistency checks, including perhaps also the CRC checking..
+
+    return errors
 
 ##########################
 ######## raw utils ########
@@ -234,3 +398,20 @@ def printRawWords(words64):
     for word in words64:
         print "%d\t: %s" % (i, hexPadded64(word))
         i += 1
+
+#given a local daq raw file pattern, which can include a * for the part number (last number in the filename), this returns all available filenames
+def getAllLocalDaqRawFiles(rawFilenamePattern, maxFiles = None):
+    ret = []
+    if '*' in rawFilenamePattern:
+        partIdx = 0
+        filename = rawFilenamePattern.replace("*", "%03d" % partIdx)
+        while os.path.isfile(filename):
+            ret.append(filename)
+            partIdx += 1
+            if (partIdx >= maxFiles):
+                break
+            filename = rawFilenamePattern.replace("*", "%03d" % partIdx)
+    else:
+        ret.append(rawFilenamePattern)
+
+    return ret

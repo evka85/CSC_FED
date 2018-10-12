@@ -7,22 +7,184 @@ import struct
 import numpy as np
 from time import *
 
-IGNORE_DMBS = [[1, 1], [12, 1]]
+IGNORE_DMBS = [[1, 1], [12, 1]]  # these DMBs will get ignored
+MAX_LOOKAHEAD = 150000 # how many future events should be searched for a match
+EXIT_ON_FIRST_ERROR = False
 
 def main():
 
     ldaqFilename1 = ""
     ldaqFilename2 = ""
+    maxFiles = None
 
     if len(sys.argv) < 3:
-        print('Usage: local_daq_unpack_compare.py <local_daq_data_file_1> <local_daq_data_file_2>')
-        print('File #1 is the reference')
+        print('Usage: local_daq_unpack_compare.py <local_daq_data_file_pattern_1> <local_daq_data_file_pattern_2> [max_num_files_match]')
+        print('file patterns can be exact filenames or have a * indicating a wildcard, but only for the part number (last number in the local daq filename)')
+        print('if a wildcard is used, you can optionally provide a max number of files to match to (default is no limit)')
         return
     else:
         ldaqFilename1 = sys.argv[1]
         ldaqFilename2 = sys.argv[2]
 
+    if len(sys.argv) > 3:
+        maxFiles = int(sys.argv[3])
+
     heading('Welcome to Local DAQ raw file unpacking and comparison tool')
+
+    files1 = getAllLocalDaqRawFiles(ldaqFilename1, maxFiles)
+    files2 = getAllLocalDaqRawFiles(ldaqFilename2, maxFiles)
+
+    events1 = []
+    events2 = []
+    fileIdx1 = -1
+    fileIdx2 = -1
+    idx1 = -1
+    idx2 = -1
+    ids1 = []
+    ids2 = []
+    id1 = -1
+    id2 = -1
+    lastFile1 = False
+    lastFile2 = False
+
+    skippedEvents1 = 0
+    skippedEvents2 = 0
+    mismatchedDmbBlocks = 0
+    errors = []
+    dmbNumberMismatches = 0
+    eventsChecked = 0
+
+    while True:
+        idx1 += 1
+        idx2 += 1
+
+        # if we're at the end of the last file, then quit
+        if (lastFile1 and idx1 >= len(events1)) or (lastFile2 and idx2 >= len(events2)):
+            print("DONE")
+            break
+
+        # read the next file if we're getting close to the end
+        if not lastFile1 and (idx1 + MAX_LOOKAHEAD >= len(events1)):
+            fileIdx1 += 1
+            if fileIdx1 + 1 >= len(files1):
+                lastFile1 = True
+            del events1[:idx1]
+            del ids1[:idx1]
+            newEvents = unpackFile(files1[fileIdx1], True, IGNORE_DMBS)
+            events1 += newEvents
+            newIds = getIds(newEvents)
+            ids1 += newIds
+            idx1 = 0
+
+        if not lastFile2 and (idx2 + MAX_LOOKAHEAD >= len(events2)):
+            fileIdx2 += 1
+            if fileIdx2 + 1 >= len(files2):
+                lastFile2 = True
+            del events2[:idx2]
+            del ids2[:idx2]
+            newEvents = unpackFile(files2[fileIdx2], True, IGNORE_DMBS)
+            events2 += newEvents
+            newIds = getIds(newEvents)
+            ids2 += newIds
+            idx2 = 0
+
+
+        # zz = len(ids1)
+        # if zz > len(ids2):
+        #     zz = len(ids2)
+        # for i in range(0, zz):
+        #     print("L1A IDS: %d %d ||| BX IDs: %d %d" % (ids1[i] >> 12, ids2[i] >> 12, ids1[i] & 0xfff, ids2[i] & 0xfff))
+        # return
+
+        evt1 = events1[idx1]
+        evt2 = events2[idx2]
+
+        id1 = (evt1.l1Id << 12) + evt1.bxId
+        id2 = (evt2.l1Id << 12) + evt2.bxId
+
+        matchingIdFound = True
+        # if L1 IDs don't match, it means that local DAQ has skipped some events on one of the RUIs, so look ahead in both files to see where we can find the match
+        if id1 != id2:
+            matchIdx1 = None
+            matchIdx2 = None
+            if id1 in ids2[idx2:]:
+                matchIdx2 = ids2[idx2:].index(id1)
+            if id2 in ids1[idx1:]:
+                matchIdx1 = ids1[idx1:].index(id2)
+
+            if matchIdx1 is not None and matchIdx2 is not None:
+                if matchIdx1 - idx1 < matchIdx2 - idx2:
+                    idx1 += matchIdx1
+                    skippedEvents1 += matchIdx1
+                else:
+                    idx2 += matchIdx2
+                    skippedEvents2 += matchIdx2
+            elif matchIdx1 is not None:
+                idx1 += matchIdx1
+                skippedEvents1 += matchIdx1
+            elif matchIdx2 is not None:
+                idx2 += matchIdx2
+                skippedEvents2 += matchIdx2
+            else:
+                matchingIdFound = False
+                skippedEvents1 += 1
+                skippedEvents2 += 1
+
+        if matchingIdFound:
+            eventsChecked += 1
+            evt1 = events1[idx1]
+            evt2 = events2[idx2]
+            if (evt1.l1Id != evt2.l1Id or evt1.bxId != evt2.bxId):
+                printRed("Script error: after matching IDs were found, they still seem to be different hmmm. L1ID1 = %d, L1ID2 = %d, BXID1 = %d, BXID2 = %d" % (evt1.l1Id, evt2.l1Id, evt1.bxId, evt2.bxId))
+                return
+
+            print("Checking event %d, L1 ID = %d, BX ID = %d. Num skipped events in file1 = %d, file2 = %d" % (eventsChecked, evt1.l1Id, evt1.bxId, skippedEvents1, skippedEvents2))
+
+            if len(evt1.dmbs) != len(evt2.dmbs):
+                err = "Event #%d: The number of DMBs don't match. Expected %d, but found %d in file 2" % (eventsChecked, len(evt1.dmbs), len(evt2.dmbs))
+                printRed(err)
+                errors.append(err)
+                dmbNumberMismatches += 1
+                if EXIT_ON_FIRST_ERROR:
+                    return
+            else:
+                for i in range(0, len(evt1.dmbs)):
+                    smallerSize = evt1.dmbs[i].words.size
+                    if evt2.dmbs[i].words.size < smallerSize:
+                        smallerSize = evt2.dmbs[i].words.size
+                    mismatches = (evt1.dmbs[i].words[0:smallerSize] != evt2.dmbs[i].words[0:smallerSize])
+                    if ((evt1.dmbs[i].words.size != evt2.dmbs[i].words.size) or mismatches.any()):
+                        printRed("DMB words don't match")
+                        dumpEventsNumpy(evt1.dmbs[i].words, evt2.dmbs[i].words)
+                        if EXIT_ON_FIRST_ERROR:
+                            return
+                        mismatchedDmbBlocks += 1
+                        firstMismatchStr = "none"
+                        if mismatches.any():
+                            firstMismatch64Idx = np.where(mismatches == True)[0][0]
+                            firstMismatch64_1 = int(evt1.dmbs[i].words[firstMismatch64Idx])
+                            firstMismatch64_2 = int(evt2.dmbs[i].words[firstMismatch64Idx])
+                            for j in range(0, 4):
+                                word16_1 = (firstMismatch64_1 >> (16 * j)) & 0xffff
+                                word16_2 = (firstMismatch64_2 >> (16 * j)) & 0xffff
+                                if word16_1 != word16_2:
+                                    firstMismatchStr = hexPadded(word16_1, 2, True) + " ---- " + hexPadded(word16_2, 2, True)
+                                    break
+                        errors.append("Event #%d: Crate %d DMB %d, first mismatched word = %s" % (eventsChecked, evt1.dmbs[i].crateId, evt1.dmbs[i].dmbId, firstMismatchStr))
+
+    print("Total number of events checked: %d" % eventsChecked)
+    print("Total number of events skipped due to syncing on file1 = %d, file2 = %d" % (skippedEvents1, skippedEvents2))
+    print("Total number of events where the number of DMBs didn't match: %d" % dmbNumberMismatches)
+    print("Total number of DMB blocks with size or data mismatches: %d" % mismatchedDmbBlocks)
+    if (len(errors) > 0):
+        printRed("Errors found:")
+        for error in errors:
+            printRed("      %s" % error)
+
+
+
+
+    return
 
     heading("Unpacking the first file")
     tt1 = clock()
@@ -124,6 +286,15 @@ def main():
     tt2 = clock()
     print("Comparing the data took %f" % (t2 - t1))
     print("Total time spent = %f" % (tt2 - tt1))
+
+# this function returns a list of event IDs where the lowest 12 bits are BX, and the top bits are L1A ID
+def getIds(events):
+    ret = []
+    for event in events:
+        id = event.l1Id << 12
+        id += event.bxId
+        ret.append(id)
+    return ret
 
 if __name__ == '__main__':
     main()
