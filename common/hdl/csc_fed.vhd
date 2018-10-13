@@ -223,6 +223,10 @@ begin
             reset_i                 => reset,
             clk_i                   => csc_dmb_rx_usrclk_arr_i(0),
 
+            -- TTC
+            ttc_clks_i              => ttc_clocks,
+            ttc_cmds_i              => ttc_cmd,
+        
             -- DMB links
             csc_dmb_rx_usrclk_arr_i => csc_dmb_rx_usrclk_arr_i,
             csc_dmb_rx_data_arr_i   => csc_dmb_rx_data_arr_i,

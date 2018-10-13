@@ -165,6 +165,7 @@ architecture Behavioral of daq is
     -- Main DAQ FSM signals
     signal daq_not_empty_event  : std_logic := '0';
     signal ddu_crc              : std_logic_vector(15 downto 0) := (others => '0');
+    signal dmb_64bit_misaligned : std_logic := '0';
   
     -- DAQ Error Flags
     signal err_l1afifo_full     : std_logic := '0';
@@ -935,6 +936,7 @@ begin
                 spy_prescale_counter <= x"0002";
                 spy_prescale_keep_evt <= '0';
                 daq_not_empty_event <= '0';
+                dmb_64bit_misaligned <= '0';
             else
             
                 -- output formatting state machine
@@ -949,6 +951,7 @@ begin
                     spy_fifo_wr_en <= '0';
                     e_word_count <= (others => '0');
                     e_input_idx <= 0;
+                    dmb_64bit_misaligned <= '0';
                     
                     
                     -- have an L1A and data from all enabled inputs is ready (or these inputs have timed out)
@@ -1182,6 +1185,12 @@ begin
                             end if;
                         else
 
+                            if chamber_evtfifos(e_input_idx).dout(4) = '1' then
+                                dmb_64bit_misaligned <= '1';
+                            else
+                                dmb_64bit_misaligned <= dmb_64bit_misaligned;
+                            end if;
+
                             -- keep reading the input fifo
                             daq_event_write_en <= not e_payload_first_cycle;
                             spy_fifo_wr_en <= not e_payload_first_cycle;                        
@@ -1303,7 +1312,7 @@ begin
 
                         -- send the data
                         daq_event_data <= x"a" &
-                                          "000" & e_close_l1a & 
+                                          dmb_64bit_misaligned & "00" & e_close_l1a & 
                                           x"0" & std_logic_vector(e_word_count - 1) &
                                           ddu_crc & -- DDU CRC
                                           x"0" &

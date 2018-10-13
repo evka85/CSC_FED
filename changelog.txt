@@ -181,3 +181,24 @@ Fixed the DAV count in the FED header to not count empty DMB packets
 
 Added a "close L1A" flag in the trailer 3
 Also fixed the DAV flags in the header 3 to exclude empty DMB events
+
+--------------------
+----   1.2.12   ----
+---- 2018-10-12 ----
+--------------------
+
+Changed the gbe_tx_driver eoe signal to be driven by a process instead of the combinational logic (which may have been causing one extra 16bit word from the next event to be readout at the end of event)
+
+--------------------
+----   1.2.13   ----
+---- 2018-10-12 ----
+--------------------
+
+Added a flag in the fed trailer 3 (bit 59) that indicates if this event contains DMB blocks that are misaligned with 64bit boundary
+
+--------------------
+----   1.2.14   ----
+---- 2018-10-14 ----
+--------------------
+
+Veto all DMB link counters for 300ms after receiving a TTC hard-reset command. ODMB is sending junk while the FPGA is reprogramming (although DMBs don't seem to do that hmm).

@@ -78,7 +78,6 @@ architecture gbe_tx_driver_arch of gbe_tx_driver is
     signal evt_cnt              : unsigned(31 downto 0) := (others => '0');
     signal evt_word_cnt         : unsigned(15 downto 0) := (others => '0');
     signal word64               : std_logic_vector(63 downto 0) := (others => '0');
-    signal eoe_detected         : std_logic := '0';
     signal eoe_countdown        : unsigned(2 downto 0) := (others => '0'); 
     signal eoe                  : std_logic := '0';
     
@@ -335,19 +334,17 @@ begin
 
     -- end of event detection and word count
     
-    eoe <= '1' when (eoe_detected = '1') and (eoe_countdown = "000") else '0';
-    
     process(gbe_clk_i)
     begin
         if (rising_edge(gbe_clk_i)) then
             if (reset_i = '1') then
                 word64 <= (others => '0');
                 evt_word_cnt <= (others => '0');
-                eoe_detected <= '0';
                 eoe_countdown <= (others => '0');     
                 err_evt_too_big <= '0';  
                 err_eoe_not_found <= '0';
-                evt_cnt <= (others => '0');                
+                evt_cnt <= (others => '0');
+                eoe <= '0';
             else
 
                 if (state = PAYLOAD) then
@@ -355,15 +352,20 @@ begin
                     
                     if (word64 = DDU_EOE_WORD64) then
                         eoe_countdown <= "111";
-                        eoe_detected <= '1';
+                        eoe <= '0';
                         evt_cnt <= evt_cnt + 1;
+                    elsif (eoe_countdown = "001") then
+                        eoe <= '1';
+                        eoe_countdown <= (others => '0');
+                        evt_cnt <= evt_cnt;
                     elsif (eoe_countdown = "000") then
-                        eoe_detected <= '0';
+                        eoe <= '0';
                         eoe_countdown <= (others => '0');
                         evt_cnt <= evt_cnt;
                     else
-                        eoe_detected <= '1';
+                        eoe <= '0';
                         eoe_countdown <= eoe_countdown - 1;
+                        evt_cnt <= evt_cnt;
                     end if;
                     
                     if (eoe = '1') then
@@ -387,7 +389,7 @@ begin
                     word64 <= (others => '0');
                     evt_cnt <= evt_cnt;
                     evt_word_cnt <= evt_word_cnt;
-                    eoe_detected <= '0';
+                    eoe <= '0';
                     eoe_countdown <= (others => '0');     
                     err_evt_too_big <= err_evt_too_big;  
                     err_eoe_not_found <= err_eoe_not_found;                          
