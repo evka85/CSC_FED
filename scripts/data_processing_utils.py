@@ -2,6 +2,7 @@ import struct
 from utils import *
 import numpy as np
 import time
+import os
 
 ##########################
 ######## unpacker ########
@@ -172,8 +173,8 @@ class CfebEvent:
             self.timeSamples.append(timeSample)
             if self.l1Id is None:
                 self.l1Id = timeSample.l1Id
-            elif self.l1Id != timeSample.l1Id:
-                self.unpackErrors.append("Time sample #%d has a different L1 ID than others: expected %d, but got %d" % (i, self.l1Id, timeSample.l1Id))
+            # elif self.l1Id != timeSample.l1Id:
+            #     self.unpackErrors.append("Time sample #%d has a different L1 ID than others: expected %d, but got %d" % (i, self.l1Id, timeSample.l1Id))
 
 
 class CfebTimeSample:
@@ -249,10 +250,16 @@ def checkEventErrors(event):
         for cfebIdx in range(0, len(dmb.cfebs)):
             cfeb = dmb.cfebs[cfebIdx]
             if cfeb.l1Id != (dmb.l1Id & 0x3f):
+                # pass
                 errors.append("CFEB #%d (crate %d dmb %d) L1A ID doesn't match the DMB L1A ID: DMB = %d, CFEB = %d, CFEB expected = %d" % (cfebIdx, dmb.crateId, dmb.dmbId, dmb.l1Id, cfeb.l1Id, dmb.l1Id & 0x3f))
         # check BX ID consistency
         # if dmb.bxId != event.bxId:
         #     errors.append("DMB (crate %d dmb %d) BX ID doesn't match the FED BX ID: FED = %d, DMB = %d" % (dmb.crateId, dmb.dmbId, event.bxId, dmb.bxId))
+
+        #check that the DMB trailer words have the correct DDU codes
+        if dmb.words[dmb.words.size - 2] & 0xf000f000f000f000 != 0xf000f000f000f000 or dmb.words[dmb.words.size - 1] & 0xf000f000f000f000 != 0xe000e000e000e000:
+            errors.append("DMB (crate %d dmb %d) trailer words don't have the correct DDU codes, suspect that it's misaligned with 64bit boundaries: trailer1 = %s, trailer2 = %s" % (dmb.crateId, dmb.dmbId, hexPadded64(dmb.words[dmb.words.size - 2]), hexPadded64(dmb.words[dmb.words.size - 1])))
+
 
         # TODO: check L1 ID consistency of ALCT and TMB
 
@@ -320,13 +327,17 @@ def dumpEvents(cfedEvent, dduEvent):
         else:
             print(line)
 
-def dumpEventsNumpy(words1, words2, annotateWords1 = True):
+def dumpEventsNumpy(words1, words2, annotateWords1 = True, maxSize = 5000):
     len1 = words1.size
-    len2 = words2.size
+    len2 = 0
+    if words2 is not None:
+        len2 = words2.size
 
     length = len1
     if (len2 > len1):
         length = len2
+    if length > maxSize:
+        length = maxSize
 
     line = ""
     dmbHead2Idx = -9999
@@ -367,10 +378,11 @@ def dumpEventsNumpy(words1, words2, annotateWords1 = True):
         else:
             line = "                  "
 
-        line += "  ----  "
+        if words2 is not None:
+            line += "  ----  "
 
-        if (i < len2):
-            line += hexPadded((int(words2[i]) >> 48) & 0xffff, 2, False) + " " + hexPadded((int(words2[i]) >> 32) & 0xffff, 2, False) + " " + hexPadded((int(words2[i]) >> 16) & 0xffff, 2, False) + " " + hexPadded(int(words2[i]) & 0xffff, 2, False)
+            if (i < len2):
+                line += hexPadded((int(words2[i]) >> 48) & 0xffff, 2, False) + " " + hexPadded((int(words2[i]) >> 32) & 0xffff, 2, False) + " " + hexPadded((int(words2[i]) >> 16) & 0xffff, 2, False) + " " + hexPadded(int(words2[i]) & 0xffff, 2, False)
 
         if annotateWords1:
             if dmbHead2Idx == i:
@@ -388,7 +400,7 @@ def dumpEventsNumpy(words1, words2, annotateWords1 = True):
             elif (cfebWordCnt > 0) and (cfebWordCnt % 25 == 0):
                 line += "   <=== CFEB SAMPLE %d TRAILER" % int(cfebWordCnt / 25)
 
-        if (i < len1) and (i < len2) and (words1[i] != words2[i]):
+        if words2 is not None and (i < len1) and (i < len2) and (words1[i] != words2[i]):
             printRed(line)
         else:
             print(line)
@@ -408,7 +420,7 @@ def getAllLocalDaqRawFiles(rawFilenamePattern, maxFiles = None):
         while os.path.isfile(filename):
             ret.append(filename)
             partIdx += 1
-            if (partIdx >= maxFiles):
+            if maxFiles is not None and (partIdx >= maxFiles):
                 break
             filename = rawFilenamePattern.replace("*", "%03d" % partIdx)
     else:

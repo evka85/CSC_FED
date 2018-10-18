@@ -576,7 +576,6 @@ begin
     
     -- fill the L1A FIFO
     process(ttc_clks_i.clk_40)
-        variable close_l1as : std_logic := '0';
     begin
         if (rising_edge(ttc_clks_i.clk_40)) then
             if (reset_daq = '1') then
@@ -586,13 +585,8 @@ begin
             else                
                 if ((ttc_cmds_i.l1a = '1') and (freeze_on_error = '0' or tts_critical_error = '0')) then
                     l1a_gap_cntdown <= x"27";
-                    if l1a_gap_cntdown = x"00" then
-                        close_l1as := '0';
-                    else
-                        close_l1as := '1';
-                    end if;
                     
-                    l1afifo_din <= close_l1as & ttc_daq_cntrs_i.l1id & ttc_daq_cntrs_i.orbit & ttc_daq_cntrs_i.bx;
+                    l1afifo_din <= or_reduce(std_logic_vector(l1a_gap_cntdown)) & ttc_daq_cntrs_i.l1id & ttc_daq_cntrs_i.orbit & ttc_daq_cntrs_i.bx;
                     if (l1afifo_full = '0') then
                         l1afifo_wr_en <= '1';
                         err_l1afifo_full <= err_l1afifo_full;
@@ -649,7 +643,7 @@ begin
     i_spy_ethernet_driver : entity work.gbe_tx_driver
         generic map(
             g_MAX_PAYLOAD_WORDS   => 3976,
-            g_MIN_PAYLOAD_WORDS   => 32,
+            g_MIN_PAYLOAD_WORDS   => 28, -- should be 32 based on ethernet specification, but hmm looks like DDU is using 56, and actually that's what the driver is expecting too, otherwise some filler words get on disk
             g_MAX_EVT_WORDS       => 50000,
             g_NUM_IDLES_SMALL_EVT => 2,
             g_NUM_IDLES_BIG_EVT   => 7,
@@ -889,7 +883,6 @@ begin
         variable e_l1a_id                   : std_logic_vector(23 downto 0) := (others => '0');        
         variable e_bx_id                    : std_logic_vector(11 downto 0) := (others => '0');        
         variable e_orbit_id                 : std_logic_vector(15 downto 0) := (others => '0');
-        variable e_close_l1a                : std_logic;        
         
         variable e_dmb_full                 : std_logic_vector(23 downto 0) := (others => '0');
         
@@ -1000,7 +993,6 @@ begin
                         e_l1a_id        := l1afifo_dout(51 downto 28);
                         e_orbit_id      := l1afifo_dout(27 downto 12);
                         e_bx_id         := l1afifo_dout(11 downto 0);
-                        e_close_l1a     := l1afifo_dout(52);
 
                         -- send the data
                         daq_event_data <= x"00" & 
@@ -1312,7 +1304,7 @@ begin
 
                         -- send the data
                         daq_event_data <= x"a" &
-                                          dmb_64bit_misaligned & "00" & e_close_l1a & 
+                                          dmb_64bit_misaligned & "00" & (l1afifo_dout(52) and not l1afifo_empty) & 
                                           x"0" & std_logic_vector(e_word_count - 1) &
                                           ddu_crc & -- DDU CRC
                                           x"0" &

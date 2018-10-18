@@ -202,3 +202,31 @@ Added a flag in the fed trailer 3 (bit 59) that indicates if this event contains
 --------------------
 
 Veto all DMB link counters for 300ms after receiving a TTC hard-reset command. ODMB is sending junk while the FPGA is reprogramming (although DMBs don't seem to do that hmm).
+
+--------------------
+----   1.2.15   ----
+---- 2018-10-17 ----
+--------------------
+
+Trying to fix the close L1As flag.
+
+--------------------
+----   1.2.16   ----
+---- 2018-10-18 ----
+--------------------
+
+Figured out that the close L1As flag actually has to go to the event *BEFORE*
+the next L1A that's close in time! :) Since this is in trailer, and given the
+fact that the events affected by this must contain CFEB data, we can still do
+it because sending out CFEB data takes time. This is implemented in this
+version, what it does is when it reaches the DDU trailer3, it looks at the
+next L1A data in the FIFO (and the empty flag) and decides if this event
+should be tagged with a "close-L1A" flag.
+
+--------------------
+----   1.2.17   ----
+---- 2018-10-18 ----
+--------------------
+
+Decreased the minimum ethernet packet size by one more word, which will
+hopefully get rid of the junk words in the raw files altogether..
