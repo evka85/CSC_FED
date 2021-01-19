@@ -5,14 +5,14 @@ import struct
 import numpy as np
 from time import *
 from random import randint
-import Tkinter as Tk
+import tkinter
 import matplotlib.pyplot as plt
 
 PRESCALE = 1
 
-BX_PER_SECOND = 40079000 / PRESCALE
+BX_PER_SECOND = int(40079000 / PRESCALE)
 
-L1A_RATE = 750000 / PRESCALE
+L1A_RATE = int(750000 / PRESCALE)
 
 #9 board setup
 INPUT_TYPES = ["ME1/1", "ME1/1", "ME1/1", "ME1/1", "ME1/1", "ME1/1", "ME1/1", "ME1/1",
@@ -25,14 +25,22 @@ INPUT_TYPES = ["ME1/1", "ME1/1", "ME1/1", "ME1/1", "ME1/1", "ME1/1", "ME1/1", "M
                "ME4/1", "ME4/1", "ME4/1", "ME4/1",
                "ME4/2", "ME4/2", "ME4/2", "ME4/2", "ME4/2", "ME4/2", "ME4/2", "ME4/2"]
 
-DATA_RATES_MBPS = {"ME1/1": 9600/PRESCALE, "ME2/1": 6400/PRESCALE, "ME3/1": 3600/PRESCALE, "ME4/1": 3500/PRESCALE, "ME1/2": 600/PRESCALE, "ME1/3": 100/PRESCALE, "ME2/2": 400/PRESCALE, "ME3/2": 400/PRESCALE, "ME4/2": 900/PRESCALE} # data rate in Mb/s
-BANDWIDTH_BPBX = {"ME1/1": 200*4, "ME2/1": 200*3, "ME3/1": 200*2, "ME4/1": 200*2, "ME1/2": 32, "ME1/3": 32, "ME2/2": 32, "ME3/2": 32, "ME4/2": 32} # link bandwidth in bits per BX
+# old estimates
+# DATA_RATES_MBPS = {"ME1/1": 9600/PRESCALE, "ME2/1": 6400/PRESCALE, "ME3/1": 3600/PRESCALE, "ME4/1": 3500/PRESCALE, "ME1/2": 600/PRESCALE, "ME1/3": 100/PRESCALE, "ME2/2": 400/PRESCALE, "ME3/2": 400/PRESCALE, "ME4/2": 900/PRESCALE} # data rate in Mb/s
+# BANDWIDTH_BPBX = {"ME1/1": 200*4, "ME2/1": 200*3, "ME3/1": 200*2, "ME4/1": 200*2, "ME1/2": 32, "ME1/3": 32, "ME2/2": 32, "ME3/2": 32, "ME4/2": 32} # link bandwidth in bits per BX
+# OUTPUT_BANDWDIDTH_BPBX = 5000 # 200Gb/s per card
+
+# new estimates
+DATA_RATES_MBPS = {"ME1/1": 24200/PRESCALE, "ME2/1": 6400/PRESCALE, "ME3/1": 3600/PRESCALE, "ME4/1": 3500/PRESCALE, "ME1/2": 600/PRESCALE, "ME1/3": 100/PRESCALE, "ME2/2": 400/PRESCALE, "ME3/2": 400/PRESCALE, "ME4/2": 900/PRESCALE} # data rate in Mb/s
+# DATA_RATES_MBPS = {"ME1/1": 24200/PRESCALE, "ME2/1": 8900/PRESCALE, "ME3/1": 8000/PRESCALE, "ME4/1": 6000/PRESCALE, "ME1/2": 1700/PRESCALE, "ME1/3": 100/PRESCALE, "ME2/2": 300/PRESCALE, "ME3/2": 500/PRESCALE, "ME4/2": 1100/PRESCALE} # data rate in Mb/s
+BANDWIDTH_BPBX = {"ME1/1": 250*4, "ME2/1": 250*3, "ME3/1": 250*2, "ME4/1": 250*2, "ME1/2": 32, "ME1/3": 32, "ME2/2": 32, "ME3/2": 32, "ME4/2": 32} # link bandwidth in bits per BX
+OUTPUT_BANDWDIDTH_BPBX = 10000 # 400Gb/s per card
 
 INPUT_LATENCY_BX = 220 # 5.5us, which is the time it takes to send one full DCFEB packet to ODMB + 0.5us of delay over the fiber (I'm not sure if this is a correct thing to use, should check ODMB firmware to see when it starts sending an event)
 
 CONSTANT_DATA_SIZE = 23424
+CFEB_DATA_SIZE = 12800
 
-OUTPUT_BANDWDIDTH_BPBX = 5000
 DAQ_HEADER_SIZE_BITS = 384
 DAQ_TRAILER_SIZE_BITS = 384
 
@@ -233,20 +241,20 @@ def main():
     # global buf_usage
     # buf_usage = np.zeros(shape=(len(INPUT_TYPES), BX_PER_SECOND), dtype="uint32")
 
-    t1 = clock()
+    t1 = time()
 
     runOneSecond()
 
     printStats()
 
-    t2 = clock()
+    t2 = time()
 
     print("time took: %fs" % (t2 - t1))
 
 def runOneSecond():
     print("generating L1As")
     bx_l1a_id = [-1] * BX_PER_SECOND
-    for i in xrange(L1A_RATE):
+    for i in range(L1A_RATE):
         bx_id = randint(0, BX_PER_SECOND - 1)
         while bx_l1a_id[bx_id] >= 0:
             bx_id = randint(0, BX_PER_SECOND - 1)
@@ -254,7 +262,7 @@ def runOneSecond():
 
     print("sorting L1As")
     l1a_id = 0
-    for bx in xrange(BX_PER_SECOND):
+    for bx in range(BX_PER_SECOND):
         if bx_l1a_id[bx] >= 0:
             bx_l1a_id[bx] = l1a_id
             l1a_id += 1
@@ -268,13 +276,20 @@ def runOneSecond():
         while data_to_send > 0:
             #this is just using a simple constant event size, this has to be changed of course
             l1a_id = randint(0, L1A_RATE - 1)
-            while l1a_id in input_data[i]:
-                l1a_id = randint(0, L1A_RATE - 1)
-            input_data[i][l1a_id] = CONSTANT_DATA_SIZE
-            data_to_send -= CONSTANT_DATA_SIZE
+            if l1a_id in input_data[i]:
+                # TODO: in this case consider adding a smaller amount e.g. something like one more CFEB worth of data
+                input_data[i][l1a_id] += CFEB_DATA_SIZE
+                data_to_send -= CFEB_DATA_SIZE
+            else:
+                input_data[i][l1a_id] = CONSTANT_DATA_SIZE
+                data_to_send -= CONSTANT_DATA_SIZE
+
+            # while l1a_id in input_data[i]:
+            #     l1a_id = randint(0, L1A_RATE - 1)
+            # input_data[i][l1a_id] = CONSTANT_DATA_SIZE
 
     print("start clocking DAQ")
-    for bx in xrange(BX_PER_SECOND):
+    for bx in range(BX_PER_SECOND):
         if bx % 10000 == 0:
             print("processing bx #%d" % bx)
 
@@ -324,9 +339,12 @@ def collectStats(bx):
 
 def printStats():
 
+    max_total = 0
     print("max buffer usage per input:")
     for i in range(len(max_buf_usage)):
         print("    %d (%s): %d" % (i, INPUT_TYPES[i], max_buf_usage[i]))
+        max_total += max_buf_usage[i]
+    print("Max total buffer usage: %dMb" % (max_total/1000000))
 
 
     # fig = plt.figure(figsize=(30, 30))
@@ -337,13 +355,16 @@ def printStats():
     # # plt.plot(np.linspace(0, 9, 10, dtype="uint16"), np.linspace(0, 9, 10, dtype="uint16"))
     # fig.show()
 
+    # tk = tkinter.Tk()
+
     fig = plt.figure(figsize=(30, 30))
     ax = plt.axes()
     x = np.linspace(0, BX_PER_SECOND - 1, BX_PER_SECOND, dtype="uint32")
     ax.plot(x, total_buf_usage)
-    fig.show()
+    plt.show()
+    # fig.show()
 
-    Tk.mainloop()
+    # tk.mainloop()
 
 if __name__ == '__main__':
     main()
